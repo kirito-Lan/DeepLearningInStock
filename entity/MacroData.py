@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import ClassVar
+
 
 import ormar
 
 from entity.BaseMeta.BaseMeta import ormar_base_config
-from entity.Indicator import Indicator
+
 
 
 class MacroData(ormar.Model):
