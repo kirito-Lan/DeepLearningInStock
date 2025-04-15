@@ -39,20 +39,20 @@ CREATE TABLE stock_data (
     indicator_id BIGINT NOT NULL,  -- 逻辑上关联 indicator 表的 id（业务中自行维护关联，暂不添加外键约束）
     report_date DATE NOT NULL COMMENT '时间',    -- 对应日期（例如：'2025-04-15'）
     volume BIGINT DEFAULT NULL COMMENT '成交量',       -- 交易量，使用 BIGINT 以容纳较大数值
-    open_price DECIMAL(10,2) DEFAULT NULL COMMENT '开盘价',  -- 开盘价格
-    high_price DECIMAL(10,2) DEFAULT NULL COMMENT '最高价',  -- 最高价
-    low_price DECIMAL(10,2) DEFAULT NULL COMMENT '最低价',    -- 最低价
-    close_price DECIMAL(10,2) DEFAULT NULL COMMENT '收盘价',  -- 收盘价
-    change_amount DECIMAL(10,2) DEFAULT NULL COMMENT '涨跌额', -- 涨跌额
-    change_rate DECIMAL(10,2) DEFAULT NULL COMMENT '涨跌幅',   -- 涨跌幅，百分数可以存为小数形式
-    turnover_rate DECIMAL(10,2) DEFAULT NULL COMMENT '换手率', -- 换手率
-    turnover_amount DECIMAL(15,2) DEFAULT NULL COMMENT '成交额', -- 成交额
-    pe_ratio DECIMAL(10,2) DEFAULT NULL COMMENT '市盈率',    -- 市盈率
-    pb_ratio DECIMAL(10,2) DEFAULT NULL COMMENT '市净率',    -- 市净率
-    ps_ratio DECIMAL(10,2) DEFAULT NULL COMMENT '市销率',    -- 市销率
-    pc_ratio DECIMAL(10,2) DEFAULT NULL COMMENT '市现率',    -- 市现率
-    market_value DECIMAL(18,2) DEFAULT NULL COMMENT '市值',  -- 市值，可能数值较大
-    money_flow DECIMAL(15,2) DEFAULT NULL COMMENT '资金流向', -- 资金流向
+    open_price DECIMAL(10,3) DEFAULT NULL COMMENT '开盘价',  -- 开盘价格
+    high_price DECIMAL(10,3) DEFAULT NULL COMMENT '最高价',  -- 最高价
+    low_price DECIMAL(10,3) DEFAULT NULL COMMENT '最低价',    -- 最低价
+    close_price DECIMAL(10,3) DEFAULT NULL COMMENT '收盘价',  -- 收盘价
+    change_amount DECIMAL(10,3) DEFAULT NULL COMMENT '涨跌额', -- 涨跌额
+    change_rate DECIMAL(10,3) DEFAULT NULL COMMENT '涨跌幅',   -- 涨跌幅，百分数可以存为小数形式
+    turnover_rate DECIMAL(10,3) DEFAULT NULL COMMENT '换手率', -- 换手率
+    turnover_amount DECIMAL(15,3) DEFAULT NULL COMMENT '成交额', -- 成交额
+    pe_ratio DECIMAL(10,3) DEFAULT NULL COMMENT '市盈率',    -- 市盈率
+    pb_ratio DECIMAL(10,3) DEFAULT NULL COMMENT '市净率',    -- 市净率
+    ps_ratio DECIMAL(10,3) DEFAULT NULL COMMENT '市销率',    -- 市销率
+    pc_ratio DECIMAL(10,3) DEFAULT NULL COMMENT '市现率',    -- 市现率
+    market_value DECIMAL(18,3) DEFAULT NULL COMMENT '市值',  -- 市值，可能数值较大
+    money_flow DECIMAL(15,3) DEFAULT NULL COMMENT '资金流向', -- 资金流向
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_indicator_id (indicator_id)

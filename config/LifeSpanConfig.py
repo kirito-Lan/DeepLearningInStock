@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config.LoguruConfig import log
-from entity.BaseMeta.BaseMeta import database
+from model.entity.BaseMeta.BaseMeta import database
 
 
 @asynccontextmanager

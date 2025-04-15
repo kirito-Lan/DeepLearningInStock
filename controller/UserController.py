@@ -6,8 +6,8 @@ from fastapi import APIRouter
 from Utils.SnowFlake import Snowflake
 from config.LoguruConfig import log
 from constant.BaseResponse import BaseResponse
-from entity.Indicator import Indicator
-from entity.User import User
+from model.entity.Indicator import Indicator
+
 from exception.BusinessException import BusinessException
 
 router = APIRouter(prefix="/user",tags=["user"])
@@ -18,10 +18,7 @@ async def userController():
     return {"message": "userController"}
 
 
-@router.post("/get")
-async def getUser(user: User):
-    print(user)
-    return BaseResponse[list[str]].success(data=["1111111","2222222"])
+
 
 @router.post("/indicator",response_model=BaseResponse[NoneType])
 async def saveIndicator(indicator: Indicator):

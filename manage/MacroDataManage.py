@@ -1,24 +1,21 @@
 # 获取中国宏观数据 cpi ppi pmi 并且入库
 import asyncio
-from typing import List
 
 import akshare as ak
-import pydantic
 from databases import Database
 from ormar.exceptions import ModelListEmptyError
-from pydantic import parse_obj_as
 
 from typing_extensions import deprecated
 
 from Utils.SnowFlake import snowflake_instance
 from config.LoguruConfig import log
-from constant.DataTypeEnum import Frequency, DataTypeEnum
-from dao import BaseSql
-from entity.BaseMeta.BaseMeta import database
-from entity.Indicator import Indicator
+from constant.MaroDataEnum import Frequency, DataTypeEnum
+from repository import BaseSql
+from model.entity.BaseMeta.BaseMeta import database
+from model.entity.Indicator import Indicator
 import pandas as pd
 
-from entity.MacroData import MacroData
+from model.entity.MacroData import MacroData
 
 data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
              "中国PPI数据,月率报告,数据来自中国官方数据",
@@ -72,7 +69,7 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         # 根据日期去重
         china_macro_data.drop_duplicates(subset=["日期"], keep="first", inplace=True)
         # 数据清洗
-        data_set= data_cleaning(china_macro_data, indicator_id)
+        data_set= clean_macro_data(china_macro_data, indicator_id)
         # log.info("入库对象:【macroData】条数:【" + str(len(data_set)) + "】")
         # 查看该指标下的数据条数，决定是全量插入还是新增数据
         count_result = (await db.fetch_one(BaseSql.countMacroData, {"indicator_id": indicator_id}))["count"]
@@ -96,8 +93,8 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         return False
 
 
-def data_cleaning(china_macro_data, indicator_id) -> list[MacroData]:
-    """数据清洗方法"""
+def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
+    """清洗宏观数据方法"""
     data_set: list[MacroData] = []
     for row in china_macro_data.index:
         # 日期
@@ -124,8 +121,6 @@ def data_cleaning(china_macro_data, indicator_id) -> list[MacroData]:
         data_set.append(data)
         # log.info("入库对象:【" + data.__str__() + "】")
     return data_set
-
-
 
 
 async def get_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
@@ -162,9 +157,6 @@ def get_next_month(year, month):
     else:
         return year, month + 1
 
-
-
-
 @deprecated("清洗日期方法 暂时弃用")
 def clean_date(china_macro_data: pd.DataFrame):
     # 先清洗日期
@@ -185,8 +177,6 @@ def clean_date(china_macro_data: pd.DataFrame):
                     china_macro_data.loc[i, "日期"] = current_date.replace(year=target_year, month=target_month)
     # 最后统一将所有日期的天数设为 1
     china_macro_data["日期"] = china_macro_data["日期"].apply(lambda d: d.replace(day=1))
-
-
 
 
 

@@ -27,6 +27,7 @@ class DataTypeEnum(Enum):
 class Frequency:
     MONTHLY = "monthly"
     YEARLY = "yearly"
+    DAILY= "daily"
 
 
 

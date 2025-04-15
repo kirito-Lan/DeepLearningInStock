@@ -1,8 +1,10 @@
 import unittest
 import akshare as ak
 
+from config.LoguruConfig import log
 from constant.BaseResponse import BaseResponse
 from constant.ErrorCode import ErrorCode
+from test.Client.MainClient import  client
 
 """
 akshare获取数据
@@ -43,6 +45,16 @@ class MyTestCase(unittest.TestCase):
         print(BaseResponse[int].success(200))
         print(BaseResponse.fail(ErrorCode.PARAMS_ERROR))
         self.skipTest("test_base_response")
+
+    # 健康检查
+    def test_health_check(self):
+        response = client.get("/healthCheck")
+        log.info(response.json())
+        assert response.json() == {
+            "code": 200,
+            "msg": 'success',
+            "data": "ok"
+        }
 
 if __name__ == '__main__':
     unittest.main()

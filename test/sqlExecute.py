@@ -1,6 +1,6 @@
 import aiounittest
-from dao import BaseSql
-from entity.BaseMeta.BaseMeta import database
+from repository import BaseSql
+from model.entity.BaseMeta.BaseMeta import database
 
 class MyTestCase(aiounittest.AsyncTestCase):
     async def test_sql(self):

@@ -4,7 +4,7 @@ import ormar
 import sqlalchemy
 from ormar import Decimal
 
-from entity.BaseMeta.BaseMeta import ormar_base_config
+from model.entity.BaseMeta.BaseMeta import ormar_base_config
 
 
 class StockData(ormar.Model):
@@ -16,24 +16,24 @@ class StockData(ormar.Model):
                                       description="逻辑上关联 indicator 表的 id")
 
     # 时间信息
-    report_date: date = ormar.Date(nullable=False, description="数据对应的日期，如 '1996-02-01'")
+    report_date: date = ormar.Date(nullable=False, description="数据对应的日期，如 '1996-03-01'")
 
     # 其他指标字段（你可以根据需要增删字段或调整精度）
     volume: int = ormar.Integer(nullable=True, description="成交量")
-    open_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="开盘价")
-    high_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="最高价")
-    low_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="最低价")
-    close_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="收盘价")
-    change_amount: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="涨跌额")
-    change_rate: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="涨跌幅")
-    turnover_rate: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="换手率")
-    turnover_amount: Decimal = ormar.Decimal(max_digits=15, decimal_places=2, nullable=True, description="成交额")
-    pe_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="市盈率")
-    pb_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="市净率")
-    ps_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="市销率")
-    pc_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=2, nullable=True, description="市现率")
-    market_value: Decimal = ormar.Decimal(max_digits=18, decimal_places=2, nullable=True, description="市值")
-    money_flow: Decimal = ormar.Decimal(max_digits=15, decimal_places=2, nullable=True, description="资金流向")
+    open_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="开盘价")
+    high_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="最高价")
+    low_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="最低价")
+    close_price: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="收盘价")
+    change_amount: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="涨跌额")
+    change_rate: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="涨跌幅")
+    turnover_rate: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="换手率")
+    turnover_amount: Decimal = ormar.Decimal(max_digits=15, decimal_places=3, nullable=True, description="成交额")
+    pe_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="市盈率")
+    pb_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="市净率")
+    ps_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="市销率")
+    pc_ratio: Decimal = ormar.Decimal(max_digits=10, decimal_places=3, nullable=True, description="市现率")
+    market_value: Decimal = ormar.Decimal(max_digits=18, decimal_places=3, nullable=True, description="市值")
+    money_flow: Decimal = ormar.Decimal(max_digits=15, decimal_places=3, nullable=True, description="资金流向")
 
     # 自动记录创建和更新时间
     created_at: datetime = ormar.DateTime(default=datetime.now, nullable=True, description="创建时间")
