@@ -1,31 +1,24 @@
+indicatorBaseColum: str = "id,name,code,frequency,description,created_at,updated_at"
+"""indicatorBaseColum"""
 
+isIndicateExist: str = "select count(*) as num from indicator where name=:name"
+"""查询当前indicate对象是否存在"""
 
-# indicatorBaseColum
-indicatorBaseColum = "id,name,code,frequency,description,created_at,updated_at"
+getIndicateId: str = "select id from indicator where name=:name"
+"""通过name获取indicate 对象的id"""
 
-# 插叙当前indicate对象是否存在
-isIndicateExist= "select count(*) as num from indicator where name=:name"
+getIndicateIdByCode: str = "select id from indicator where code=:code"
+"""通过code获取indicate对象的id"""
 
-#获取indicate 对象的id
-getIndicateId= "select id from indicator where name=:name"
+countMacroData = "select count(*) as count  from macro_data where indicator_id=:indicator_id"
+"""统计指定的指标下的数据条数"""
 
+macro_dataBaseColum: str = "id,indicator_id,report_date,current_value,forecast_value,previous_value,created_at,updated_at"
+"""macro_dataBaseColum"""
 
-#获取indicate 对象的id
-getIndicateIdByCode= "select id from indicator where code=:code"
-
-#统计指定的指标下的数据条数
-countMacroData= "select count(*) as count  from macro_data where indicator_id=:indicator_id"
-
-
-# macro_dataBaseColum
-macro_dataBaseColum = "id,indicator_id,report_date,current_value,forecast_value,previous_value,created_at,updated_at"
-
-
+getLimitYearData: str = "select " + macro_dataBaseColum + (" from macro_data where indicator_id=:indicator_id"
+                                                           " and report_date>=DATE_SUB(CURDATE(),INTERVAL :limit YEAR)")
 """ 过滤获取limit年前的数据"""
-getLimitYearData = "select " + macro_dataBaseColum + (" from macro_data where indicator_id=:indicator_id"
-                                                      " and report_date>=DATE_SUB(CURDATE(),INTERVAL :limit YEAR)")
-
-
 
 if __name__ == '__main__':
     print(getLimitYearData)

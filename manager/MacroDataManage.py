@@ -4,10 +4,11 @@ import asyncio
 import akshare as ak
 from databases import Database
 from ormar.exceptions import ModelListEmptyError
+from sqlalchemy import text
 
 from typing_extensions import deprecated
 
-from Utils.SnowFlake import snowflake_instance
+from utils.SnowFlake import snowflake_instance
 from config.LoguruConfig import log
 from constant.MaroDataEnum import PERIOD, DataTypeEnum
 from repository import BaseSql
@@ -37,25 +38,22 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         else:
             raise ValueError("不支持的数据类型")
 
-        # 填充数据 构造主表入库信息
-        frequency = PERIOD.MONTHLY
         name = china_macro_data["商品"][0]
-        description = data_type[types.value[0]]
-        code = types.value[1]
-        field_id = snowflake_instance.get_id()
-        log.info("snowflake获取主键id:【{}】", field_id)
-        indicator = Indicator(id=field_id, name=name, description=description, frequency=frequency, code=code)
         # 判断 indicator 是否存在
-        query = BaseSql.isIndicateExist
-        values = {"name": name}
-        count_result = await db.fetch_one(query, values)  # 使用 await 调用异步函数
-        count = count_result["num"]
+        count = (await db.fetch_one(query=text(BaseSql.isIndicateExist).bindparams(name=name)))["num"]
         if count == 0:
+            # 填充数据 构造主表入库信息
+            frequency = PERIOD.MONTHLY
+            description = data_type[types.value[0]]
+            code = types.value[1]
+            field_id = snowflake_instance.get_id()
+            # log.info("snowflake获取主键id:【{}】", field_id)
+            indicator = Indicator(id=field_id, name=name, description=description, frequency=frequency, code=code)
             # 插入 indicator 表
             indicator_id = (await indicator.save()).id
             log.info("入库对象:【" + indicator.__str__() + "】")
         else:
-            indicator_id = (await db.fetch_one(BaseSql.getIndicateId, values))["id"]
+            indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateId).bindparams(name=name)))["id"]
             log.info("回查indicator_id【{}】", indicator_id)
 
         """数据清洗
@@ -69,10 +67,10 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         # 根据日期去重
         china_macro_data.drop_duplicates(subset=["日期"], keep="first", inplace=True)
         # 数据清洗
-        data_set= clean_macro_data(china_macro_data, indicator_id)
+        data_set = clean_macro_data(china_macro_data, indicator_id)
         # log.info("入库对象:【macroData】条数:【" + str(len(data_set)) + "】")
         # 查看该指标下的数据条数，决定是全量插入还是新增数据
-        count_result = (await db.fetch_one(BaseSql.countMacroData, {"indicator_id": indicator_id}))["count"]
+        count_result = (await db.fetch_one(query=BaseSql.countMacroData,values= {"indicator_id": indicator_id}))["count"]
         if count_result == 0:
             # 全量插入
             await MacroData.objects.bulk_create(data_set)
@@ -90,6 +88,7 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         # print(china_macro_data)
     except Exception as e:
         log.error("发生异常 数据清洗失败")
+        log.exception(e)
         return False
 
 
@@ -128,7 +127,7 @@ async def get_macro_data(db: Database = database, types: DataTypeEnum = DataType
     """ 方法用于从数据库中获取数据并且封装成panda.DateFrame形式"""
     try:
         # 获取指标中的id
-        indicator_id = (await db.fetch_one(BaseSql.getIndicateIdByCode, {"code": types.value[1]}))["id"]
+        indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode).bindparams(code=types.value[1])))["id"]
         res = await MacroData.objects.database.fetch_all(query=BaseSql.getLimitYearData,
                                                          values={"indicator_id": indicator_id, "limit": limit})
         if not res:
@@ -144,7 +143,7 @@ async def get_macro_data(db: Database = database, types: DataTypeEnum = DataType
         data_frame.sort_values(by="report_date", ascending=False, inplace=True)
     except Exception as e:
         log.error("获取数据失败")
-        log.error(e)
+        log.exception(e)
         return pd.DataFrame()
     # 删除指定列
     return data_frame
@@ -156,6 +155,7 @@ def get_next_month(year, month):
         return year + 1, 1
     else:
         return year, month + 1
+
 
 @deprecated("清洗日期方法 暂时弃用")
 def clean_date(china_macro_data: pd.DataFrame):
@@ -179,9 +179,7 @@ def clean_date(china_macro_data: pd.DataFrame):
     china_macro_data["日期"] = china_macro_data["日期"].apply(lambda d: d.replace(day=1))
 
 
-
 async def main():
-
     """ 方法测试"""
     await database.connect()
     await save_or_update_macro_data(types=DataTypeEnum.PMI)
