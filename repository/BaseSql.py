@@ -17,8 +17,8 @@ macro_dataBaseColum: str = "id,indicator_id,report_date,current_value,forecast_v
 """macro_dataBaseColum"""
 
 getLimitYearData: str = "select " + macro_dataBaseColum + (" from macro_data where indicator_id=:indicator_id"
-                                                           " and report_date>=DATE_SUB(CURDATE(),INTERVAL :limit YEAR)")
-""" 过滤获取limit年前的数据"""
+                                                           " and report_date BETWEEN :start_date AND :end_date")
+""" 过滤获取时间区间内的数据"""
 
 if __name__ == '__main__':
     print(getLimitYearData)

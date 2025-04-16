@@ -1,12 +1,14 @@
 import asyncio
+import os
 from datetime import datetime
 
 import akshare as ak
 from databases import Database
 
-from config.LoguruConfig import log
+from config.LoguruConfig import log, project_root
 from constant.ExponentEnum import ExponentEnum
 from constant.MaroDataEnum import PERIOD
+from exception.BusinessException import BusinessException
 from model.entity.StockData import StockData
 from utils.SnowFlake import snowflake_instance
 from model.entity.BaseMeta.BaseMeta import database
@@ -32,10 +34,12 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     :param stock_code: 股票代码
     :param start_date: 起始时间 default->"19700101"
     :param end_date: 结束时间 default->now()
+    :return bool
+    :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
     if not stock_code:
-        stock_code = ExponentEnum.SZCZ.get_code()
+        stock_code = ExponentEnum.HS300.get_code()
     # 查询indicator是否存在
     exits = await Indicator.objects.filter(code=stock_code).exists()
     if not exits:
@@ -86,9 +90,8 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                 log.info("股票指标数据全量入库成功")
                 return True
             except Exception as e:
-                log.error("发生异常 数据入库失败")
                 log.exception(e)
-                pass
+                raise BusinessException(code=500, msg="数据入库失败")
         else:
             log.info("数据为空不执行入库")
         return True
@@ -112,9 +115,8 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
             return True
 
         except Exception as e:
-            log.error("发生异常 数据入库失败")
             log.exception(e)
-            return False
+            raise BusinessException(code=500, msg="数据入库失败")
 
 
 async def get_stock_data(db: Database = database, stock_code: str = None,
@@ -124,37 +126,81 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
     :param stock_code: 股票代码
     :param start_date: 起始时间 default->"19700101"
     :param end_date: 结束时间 default->now()
+    :return pandas.DataFrame
+    :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
     start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-    end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
-    if  end_date is not None:
+    if end_date is not None:
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
+    else:
+        end_date=datetime.strftime(datetime.now(), "%Y-%m-%d")
     try:
         indicator = await Indicator.objects.filter(code=stock_code).get()
         if indicator is None:
             log.info("指标不存在，返回空列表")
             return pd.DataFrame()
-        result:list[StockData] = await StockData.objects.filter(indicator_id=indicator.id,trade_date__gte=start_date, trade_date__lte=end_date).all()
+        result: list[StockData] = await StockData.objects.filter(indicator_id=indicator.id, trade_date__gte=start_date,
+                                                                 trade_date__lte=end_date).all()
         if result is None:
             log.info("时间范围内数据为空，返回空列表")
             return pd.DataFrame()
         # 转换成dateFrame
-        datalist:list[dict]=[StockData.model_dump(item) for item in result]
+        datalist: list[dict] = [StockData.model_dump(item) for item in result]
         data_frame = pd.DataFrame(datalist).drop(["id", "indicator_id", "created_at", "updated_at"], axis=1)
+        data_frame.sort_values(by="trade_date", ascending=False, inplace=True)
         return data_frame
     except Exception as e:
-        log.error("获取数据失败")
         log.exception(e)
-        pass
-    return pd.DataFrame()
+        raise BusinessException(code=500, msg="获取数据失败")
+
+# FIXME 后期优化缓存
+async def export_to_csv(db: Database = database, stock_code: str = None,
+                        start_date: str = "19700101", end_date: str = None) -> str|None:
+    """导出数据到csv文件
+    :param db: 数据库数据源无需传入
+    :param stock_code: 股票代码
+    :param start_date: 起始时间 default->"19700101"
+    :param end_date: 结束时间 default->now()
+    :raise BusinessException
+    :return FilePath
+    """
+    try:
+        csv_date = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
+        if csv_date.empty:
+            log.info("数据为空，无需导出")
+            return None
+        # 转换列名 英文转中文
+        csv_date.rename(columns={"trade_date":"日期","open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价", "low_price": "最低价",
+                         "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
+                         "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=True)
+
+        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
+        if end_date is not None:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
+        # 生成路径
+        file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
+        csv_date.to_csv(file_path, index=False)
+        log.info("导出数据成功 FilePath:【{}】", file_path)
+        return str(file_path)
+    except Exception as e:
+        # 出现异常删除文件
+        if 'file_path' in locals() and os.path.exists(file_path):
+            os.remove(file_path)
+        log.exception(e)
+        raise BusinessException(code=500, msg="导出数据失败")
+
+
 
 async def main():
     await database.connect()
     # await crawl_sock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101",
     #                       end_date=datetime.strftime(datetime.now(), "%Y%m%d"))
-    date_ = await get_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101", )
-    print(date_)
+    # date_ = await get_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101", )
+    # print(date_)
+    await export_to_csv(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101", )
     await database.disconnect()
 
 

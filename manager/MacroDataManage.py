@@ -1,5 +1,7 @@
 # 获取中国宏观数据 cpi ppi pmi 并且入库
 import asyncio
+import os
+from datetime import datetime
 
 import akshare as ak
 from databases import Database
@@ -8,8 +10,9 @@ from sqlalchemy import text
 
 from typing_extensions import deprecated
 
+from exception.BusinessException import BusinessException
 from utils.SnowFlake import snowflake_instance
-from config.LoguruConfig import log
+from config.LoguruConfig import log, project_root
 from constant.MaroDataEnum import PERIOD, DataTypeEnum
 from repository import BaseSql
 from model.entity.BaseMeta.BaseMeta import database
@@ -25,7 +28,10 @@ data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
 
 async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> bool:
     """
-    该方法用于获取cpi数据，如果没有数据那么就全量插入。反之进行增量更新
+    该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
+    :param types: 获取的宏观书据类型 DataTypeEnum
+    :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
+    :return bool
     """
     try:
         # 根据传入的类型，调用对应的 akshare 接口
@@ -70,7 +76,8 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
         data_set = clean_macro_data(china_macro_data, indicator_id)
         # log.info("入库对象:【macroData】条数:【" + str(len(data_set)) + "】")
         # 查看该指标下的数据条数，决定是全量插入还是新增数据
-        count_result = (await db.fetch_one(query=BaseSql.countMacroData,values= {"indicator_id": indicator_id}))["count"]
+        count_result = (await db.fetch_one(query=BaseSql.countMacroData,
+                                           values={"indicator_id": indicator_id}))["count"]
         if count_result == 0:
             # 全量插入
             await MacroData.objects.bulk_create(data_set)
@@ -122,14 +129,29 @@ def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
     return data_set
 
 
-async def get_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
-                         limit: int = 10) -> pd.DataFrame:
-    """ 方法用于从数据库中获取数据并且封装成panda.DateFrame形式"""
+async def get_macro_data(*, db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
+                         start_date: str = "19700101", end_date: str = None) -> pd.DataFrame:
+    """
+    方法用于从数据库中获取数据并且封装成panda.DateFrame形式
+    :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
+    :param types: DataTypeEnum
+    :param start_date: 起始时间 default->"19700101"
+    :param end_date: 结束时间 default->now()
+    :return pandas.DataFrame
+    """
+    log.info("入口参数:【types:{}】,【start_date:{}】,【end_date:{}】")
     try:
+        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
+        if end_date is not None:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
         # 获取指标中的id
-        indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode).bindparams(code=types.value[1])))["id"]
-        res = await MacroData.objects.database.fetch_all(query=BaseSql.getLimitYearData,
-                                                         values={"indicator_id": indicator_id, "limit": limit})
+        indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode)
+                                           .bindparams(code=types.value[1])))["id"]
+        res = await MacroData.objects.database.fetch_all(
+            query=text(BaseSql.getLimitYearData).bindparams(indicator_id=indicator_id, start_date=start_date,
+                                                            end_date=end_date))
         if not res:
             log.info("数据库中不存在该指标,获取数据为空")
             return pd.DataFrame()
@@ -147,6 +169,41 @@ async def get_macro_data(db: Database = database, types: DataTypeEnum = DataType
         return pd.DataFrame()
     # 删除指定列
     return data_frame
+
+#FIXME 后期使用缓存优化
+async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
+                        start_date: str = "19700101", end_date: str = None) -> str|None:
+    """ 导出数据到csv文件
+    :param db: 数据库数据源无需传入
+    :param types: DataTypeEnum
+    :param start_date: 起始时间 default->"19700101"
+    :param end_date: 结束时间 default->now()
+    :return FilePath
+    :raise BusinessException
+    """
+    try:
+        data_frame = await get_macro_data(types=types, start_date=start_date, end_date=end_date)
+        if data_frame.empty:
+            log.info("数据为空")
+            return None
+        # 重命名列名
+        data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
+                                   "previous_value": "前值"}, inplace=True)
+        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
+        if end_date is not None:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
+        # 生成数据
+        file_path = project_root / "resources" / "csvFiles" / f"macro_{types.value[1]}_{start_date}_{end_date}.csv"
+        data_frame.to_csv(file_path, index=False)
+        log.info("导出数据成功 FilePath:【{}】",file_path)
+        return str(file_path)
+    except Exception as e:
+        if 'file_path' in locals() and os.path.exists(file_path):
+            os.remove(file_path)
+        log.exception(e)
+        raise BusinessException(code=500, msg="导出数据失败")
 
 
 def get_next_month(year, month):
@@ -182,9 +239,10 @@ def clean_date(china_macro_data: pd.DataFrame):
 async def main():
     """ 方法测试"""
     await database.connect()
-    await save_or_update_macro_data(types=DataTypeEnum.PMI)
-    res = await get_macro_data(types=DataTypeEnum.PMI)
-    print(res)
+    # await save_or_update_macro_data(types=DataTypeEnum.PMI)
+    # res = await get_macro_data(types=DataTypeEnum.PMI)
+    # print(res)
+    await export_to_csv(types=DataTypeEnum.PMI)
     await database.disconnect()
 
 
