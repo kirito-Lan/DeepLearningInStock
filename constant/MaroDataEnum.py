@@ -1,16 +1,16 @@
 from enum import Enum
 
 class DataTypeEnum(Enum):
-    CPI = (0, "CPI")
-    PPI = (1, "PPI")
-    PMI = (2, "PMI")
+    CPI = ("0", "CPI")
+    PPI = ("1", "PPI")
+    PMI = ("2", "PMI")
 
-    def __init__(self, code: int, name: str):
+    def __init__(self, code: str, name: str):
         self.__code = code
         self.__name = name
 
     @classmethod
-    def get_name_by_code(cls, code: int):
+    def get_name_by_code(cls, code: str):
         for member in cls:
             if member.value[0] == code:
                 return member.value[1]
@@ -24,7 +24,7 @@ class DataTypeEnum(Enum):
         return None
 
     # getcode
-    def get_code(self)->int:
+    def get_code(self)->str:
         return self.__code
 
     def get_name(self)->str:

@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 
-from Utils.SnowFlake import Snowflake
+from utils.SnowFlake import Snowflake
 
 
 class SnowFlakeTestCase(unittest.TestCase):

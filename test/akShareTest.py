@@ -4,6 +4,7 @@ import akshare as ak
 from config.LoguruConfig import log
 from constant.BaseResponse import BaseResponse
 from constant.ErrorCode import ErrorCode
+from constant.ExponentEnum import ExponentEnum
 from test.Client.MainClient import  client
 
 """
@@ -45,6 +46,12 @@ class MyTestCase(unittest.TestCase):
         print(BaseResponse[int].success(200))
         print(BaseResponse.fail(ErrorCode.PARAMS_ERROR))
         self.skipTest("test_base_response")
+
+    def test_get_exponent(self):
+        # 获取指数数据 源自东方财富  指标的数据15:00收盘
+        index_zh_a_hist_df = ak.index_zh_a_hist(symbol=ExponentEnum.HS300.get_code(), period="daily", start_date="19700101",
+                                                end_date="22220101")
+        print(index_zh_a_hist_df)
 
     # 健康检查
     def test_health_check(self):

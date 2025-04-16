@@ -3,7 +3,7 @@ from types import NoneType
 from fastapi import APIRouter
 
 
-from Utils.SnowFlake import Snowflake
+from utils.SnowFlake import Snowflake
 from config.LoguruConfig import log
 from constant.BaseResponse import BaseResponse
 from model.entity.Indicator import Indicator

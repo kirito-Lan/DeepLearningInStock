@@ -16,6 +16,8 @@ CREATE TABLE indicator
     INDEX idx_name (name)
 ) ENGINE = InnoDB;
 
+create index idx_code on indicator(code);
+
 drop table if exists macro_data;
 -- 数据表(存储宏观数据)
 CREATE TABLE macro_data
@@ -38,20 +40,23 @@ CREATE TABLE stock_data (
     id BIGINT PRIMARY KEY,
     indicator_id BIGINT NOT NULL,  -- 逻辑上关联 indicator 表的 id
     trade_date DATE NOT NULL COMMENT '交易日',
-    open_price DECIMAL(10,3) DEFAULT NULL COMMENT '开盘价',
-    close_price DECIMAL(10,3) DEFAULT NULL COMMENT '收盘价',
-    high_price DECIMAL(10,3) DEFAULT NULL COMMENT '最高价',
-    low_price DECIMAL(10,3) DEFAULT NULL COMMENT '最低价',
+    open_price DECIMAL(15,3) DEFAULT NULL COMMENT '开盘价',
+    close_price DECIMAL(15,3) DEFAULT NULL COMMENT '收盘价',
+    high_price DECIMAL(15,3) DEFAULT NULL COMMENT '最高价',
+    low_price DECIMAL(15,3) DEFAULT NULL COMMENT '最低价',
     volume INT DEFAULT NULL COMMENT '成交量（单位: 手）',
-    turnover_amount DECIMAL(15,3) DEFAULT NULL COMMENT '成交额（单位: 元）',
+    turnover_amount DECIMAL(20,3) DEFAULT NULL COMMENT '成交额（单位: 元）',
     amplitude DECIMAL(10,3) DEFAULT NULL COMMENT '振幅（单位: %）',
     change_rate DECIMAL(10,3) DEFAULT NULL COMMENT '涨跌幅（单位: %）',
     change_amount DECIMAL(10,3) DEFAULT NULL COMMENT '涨跌额（单位: 元）',
     turnover_rate DECIMAL(10,3) DEFAULT NULL COMMENT '换手率（单位: %）',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_indicator_id (indicator_id)       -- 加速根据指标查找
+    INDEX idx_indicator_id (indicator_id),     -- 加速根据指标查找
+    index idx_trade_date (trade_date)
 ) ENGINE=InnoDB;
+
+create index idx_trade_date on stock_data(trade_date);
 
 
 
