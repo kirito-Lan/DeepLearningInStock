@@ -4,7 +4,7 @@ from pathlib import Path
 
 # 构造日志文件的绝对路径（跨平台）
 project_root = Path(__file__).parent.parent
-log_file_path = project_root / "resources" / "app.log"
+log_file_path = project_root / "resources" /"logs"/"app.log"
 
 logger.add(
     str(log_file_path),

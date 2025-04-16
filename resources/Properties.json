@@ -1,0 +1,3 @@
+{
+  "MysqlUrl": "mysql+aiomysql://root:131645@server:3306/macro_data_China"
+}

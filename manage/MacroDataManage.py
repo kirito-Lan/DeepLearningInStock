@@ -9,7 +9,7 @@ from typing_extensions import deprecated
 
 from Utils.SnowFlake import snowflake_instance
 from config.LoguruConfig import log
-from constant.MaroDataEnum import Frequency, DataTypeEnum
+from constant.MaroDataEnum import PERIOD, DataTypeEnum
 from repository import BaseSql
 from model.entity.BaseMeta.BaseMeta import database
 from model.entity.Indicator import Indicator
@@ -38,7 +38,7 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
             raise ValueError("不支持的数据类型")
 
         # 填充数据 构造主表入库信息
-        frequency = Frequency.MONTHLY
+        frequency = PERIOD.MONTHLY
         name = china_macro_data["商品"][0]
         description = data_type[types.value[0]]
         code = types.value[1]

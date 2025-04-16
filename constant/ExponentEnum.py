@@ -23,6 +23,14 @@ class ExponentEnum(Enum):
     def __init__(self, name: str,code: str):
         self.__code = code
         self.__name = name
+
+    # getcode
+    def get_code(self):
+        return self.__code
+
+    def get_name(self):
+        return self.__name
+
     @classmethod
     def get_code_by_name(cls, name: str):
         for member in cls:
