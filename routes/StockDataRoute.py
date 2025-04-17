@@ -16,6 +16,11 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 
 @router.post("/getStockCsv", response_model=BaseResponse)
 async def get_stock_csv(body: GetStockRequest):  # 参数校验
+    """
+    下载股票数据
+    :param body: 请求体
+    :return: CSV File
+    """
 
     exponent = ExponentEnum.get_enum_by_code(body.stock_code)
     if exponent is None:
@@ -28,3 +33,5 @@ async def get_stock_csv(body: GetStockRequest):  # 参数校验
         return BaseResponse[NoneType].fail(ErrorCode.OPERATION_ERROR)
     # 使用 FileResponse 返回文件给浏览器下载
     return FileResponse(path, filename="stock_data.csv", media_type="application/octet-stream")
+
+
