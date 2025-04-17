@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="13ab77b0-44c6-49a4-8fae-d1bf78c51b44" name="Changes" comment="优化构建代码">
+      <change afterPath="$PROJECT_DIR$/Utils/ReFormatDate.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/routes/StockRoute.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/routes/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test/ManagerTest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/constant/ExponentEnum.py" beforeDir="false" afterPath="$PROJECT_DIR$/constant/ExponentEnum.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller/UserController.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controller/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/exception/GlobalExceptionHandler.py" beforeDir="false" afterPath="$PROJECT_DIR$/exception/GlobalExceptionHandler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager/MacroDataManage.py" beforeDir="false" afterPath="$PROJECT_DIR$/manager/MacroDataManage.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/manager/StockDataManage.py" beforeDir="false" afterPath="$PROJECT_DIR$/manager/StockDataManage.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model/dto/CrawlStockRequest.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/dto/GetStockRequest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sql/DebugQuery.sql" beforeDir="false" afterPath="$PROJECT_DIR$/sql/DebugQuery.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sql/MacroChina.sql" beforeDir="false" afterPath="$PROJECT_DIR$/sql/MacroChina.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/sqlExecute.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/sqlExecute.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="FastAPI main" />
+        <option value="FastAPI test_main" />
+        <option value="SQL File" />
+        <option value="Dockerfile" />
+        <option value="Python Script" />
+        <option value="Python Unit Test" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;kirito-Lan&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/kirito-Lan/DeepLearningInStock.git&quot;,
+    &quot;accountId&quot;: &quot;11f9d0ae-45dd-4a91-8cb2-a27ee4e3ef56&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
+  <component name="ProjectId" id="2vOsVlYFmFZBi8coSO4A3lDMSHu" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "FastAPI.FastAPIStartUp.executor": "Run",
+    "HTTP Request.generated-requests | #1.executor": "Run",
+    "HTTP Request.test_main | #2.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_cyb_report.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_hs300.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_hxkc.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_kcb_report.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_sz50.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_yfdkc.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_zz1000.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_zz500.executor": "Run",
+    "Python tests.Python tests for GetStockTest.MyTestCase.test_get_stock_zzA500.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_crawl_stock_data.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_csv.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_export_to_csv.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_get_macro_data.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_get_stock_data.executor": "Run",
+    "Python tests.Python tests for ManagerTest.MyTestCase.test_save_or_update_macro_data.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_base_response.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_china_macro_cpi.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_china_macro_pmi.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_china_macro_ppi.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_get_exponent.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_health_check.executor": "Run",
+    "Python tests.Python tests for akShareTest.MyTestCase.test_something.executor": "Run",
+    "Python tests.Python tests for snowFlake.SnowFlakeTestCase.test_snow_flake.executor": "Run",
+    "Python tests.Python tests for sqlExecute.MyTestCase.test_sql.executor": "Run",
+    "Python tests.Python tests in akShareTest.py.executor": "Run",
+    "Python.BaseResponse.executor": "Run",
+    "Python.BaseSql.executor": "Run",
+    "Python.DataTypeEnum.executor": "Run",
+    "Python.ErrorCode.executor": "Run",
+    "Python.GetMacroData.executor": "Run",
+    "Python.LoguruConfig.executor": "Run",
+    "Python.MacroDataManage.executor": "Run",
+    "Python.MacroDataOps (1).executor": "Run",
+    "Python.MacroDataOps.executor": "Run",
+    "Python.MaroDataEnum.executor": "Run",
+    "Python.SnowFlake.executor": "Run",
+    "Python.StockDataManage.executor": "Run",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "D:/Code/PyCode/FastAPIStartUp",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "Code Search",
+    "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "mysql"
+    ]
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Code\PyCode\FastAPIStartUp\controller" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Code\PyCode\FastAPIStartUp\buidTools" />
+      <recent name="D:\Code\PyCode\FastAPIStartUp\model" />
+      <recent name="D:\Code\PyCode\FastAPIStartUp\manage" />
+      <recent name="D:\Code\PyCode\FastAPIStartUp" />
+      <recent name="D:\Code\PyCode\FastAPIStartUp\controller" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="FastAPIStartUp" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.25659.43" />
+        <option value="bundled-python-sdk-181015f7ab06-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.25659.43" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="13ab77b0-44c6-49a4-8fae-d1bf78c51b44" name="Changes" comment="" />
+      <created>1720492938366</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1720492938366</updated>
+      <workItem from="1720492938366" duration="21000" />
+      <workItem from="1744027482172" duration="41988000" />
+      <workItem from="1744194716278" duration="10475000" />
+      <workItem from="1744206623712" duration="16957000" />
+      <workItem from="1744266413224" duration="19219000" />
+      <workItem from="1744294638033" duration="16423000" />
+      <workItem from="1744410511472" duration="15635000" />
+      <workItem from="1744613882673" duration="852000" />
+      <workItem from="1744614747027" duration="1659000" />
+      <workItem from="1744616423854" duration="5940000" />
+      <workItem from="1744675742397" duration="19043000" />
+      <workItem from="1744783737076" duration="33498000" />
+      <workItem from="1744859838137" duration="2922000" />
+      <workItem from="1744883000193" duration="16429000" />
+    </task>
+    <task id="LOCAL-00001" summary="项目迁移Git">
+      <option name="closed" value="true" />
+      <created>1744615858024</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1744615858024</updated>
+    </task>
+    <task id="LOCAL-00002" summary="项目迁移Git">
+      <option name="closed" value="true" />
+      <created>1744616401482</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1744616401482</updated>
+    </task>
+    <task id="LOCAL-00003" summary="项目迁移Git">
+      <option name="closed" value="true" />
+      <created>1744616499010</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1744616499010</updated>
+    </task>
+    <task id="LOCAL-00004" summary="新建库存储股票数据">
+      <option name="closed" value="true" />
+      <created>1744679541153</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1744679541153</updated>
+    </task>
+    <task id="LOCAL-00005" summary="业务模型调整，完善业务规则">
+      <option name="closed" value="true" />
+      <created>1744728885076</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1744728885076</updated>
+    </task>
+    <task id="LOCAL-00006" summary="再次调整业务模型调整">
+      <option name="closed" value="true" />
+      <created>1744789416109</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1744789416109</updated>
+    </task>
+    <task id="LOCAL-00007" summary="查询逻辑调整">
+      <option name="closed" value="true" />
+      <created>1744800176099</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1744800176099</updated>
+    </task>
+    <task id="LOCAL-00008" summary="股票数据的全量和增量插入">
+      <option name="closed" value="true" />
+      <created>1744819282525</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1744819282525</updated>
+    </task>
+    <task id="LOCAL-00009" summary="新增导出数据到CSV文件方法">
+      <option name="closed" value="true" />
+      <created>1744824056798</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1744824056798</updated>
+    </task>
+    <task id="LOCAL-00010" summary="优化导出文件方法">
+      <option name="closed" value="true" />
+      <created>1744864353177</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1744864353177</updated>
+    </task>
+    <task id="LOCAL-00011" summary="创建docker构建文件">
+      <option name="closed" value="true" />
+      <created>1744885362549</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1744885362549</updated>
+    </task>
+    <task id="LOCAL-00012" summary="创建docker构建文件">
+      <option name="closed" value="true" />
+      <created>1744894146711</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1744894146712</updated>
+    </task>
+    <task id="LOCAL-00013" summary="优化构建代码">
+      <option name="closed" value="true" />
+      <created>1744894601838</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1744894601838</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="项目迁移Git" />
+    <MESSAGE value="新建库存储股票数据" />
+    <MESSAGE value="业务模型调整，完善业务规则" />
+    <MESSAGE value="再次调整业务模型调整" />
+    <MESSAGE value="查询逻辑调整" />
+    <MESSAGE value="股票数据的全量和增量插入" />
+    <MESSAGE value="新增导出数据到CSV文件方法" />
+    <MESSAGE value="优化导出文件方法" />
+    <MESSAGE value="创建docker构建文件" />
+    <MESSAGE value="优化构建代码" />
+    <option name="LAST_COMMIT_MESSAGE" value="优化构建代码" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/.venv/Lib/site-packages/databases/core.py</url>
+          <line>168</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$MacroDataOps__1_.coverage" NAME="MacroDataOps (1) Coverage Results" MODIFIED="1744451731276" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Utils" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$FastAPIStartUp.coverage" NAME="FastAPIStartUp Coverage Results" MODIFIED="1744033065045" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$SnowFlake.coverage" NAME="SnowFlake Coverage Results" MODIFIED="1744130558279" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Utils" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$LoguruConfig.coverage" NAME="LoguruConfig Coverage Results" MODIFIED="1744144056265" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/config" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$MacroDataManage.coverage" NAME="MacroDataManage Coverage Results" MODIFIED="1744893501272" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/manager" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$ErrorCode.coverage" NAME="ErrorCode Coverage Results" MODIFIED="1744109817259" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/constant" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$BaseResponse.coverage" NAME="BaseResponse Coverage Results" MODIFIED="1744110249515" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/constant" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$.coverage" NAME=" Coverage Results" MODIFIED="1744899531882" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$BaseSql.coverage" NAME="BaseSql Coverage Results" MODIFIED="1744412161819" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dao" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$DataTypeEnum.coverage" NAME="DataTypeEnum Coverage Results" MODIFIED="1744207419725" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/constant" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$StockDataManage.coverage" NAME="StockDataManage Coverage Results" MODIFIED="1744894043889" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/manager" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$GetMacroData.coverage" NAME="GetMacroData Coverage Results" MODIFIED="1744373679697" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Utils" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$MaroDataEnum.coverage" NAME="MaroDataEnum Coverage Results" MODIFIED="1744789272546" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/constant" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$main.coverage" NAME="main Coverage Results" MODIFIED="1744901117080" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/FastAPIStartUp$MacroDataOps.coverage" NAME="MacroDataOps Coverage Results" MODIFIED="1744415685632" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Utils" />
+  </component>
+</project>
