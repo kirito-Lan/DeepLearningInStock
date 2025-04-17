@@ -29,13 +29,13 @@ index_descriptions = {
 
 
 async def crawl_sock_data(db: Database = database, stock_code: str = None,
-                          start_date: str = "19700101", end_date: str = None) -> bool:
+                          start_date: str = "2000-01-01", end_date: str = None) -> bool:
     """从东方财富网获取数据
     :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
-    :param start_date: 起始时间 default->"19700101"
-    :param end_date: 结束时间 default->now()
-    :return bool
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: bool
     :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
@@ -60,6 +60,9 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     else:
         indicator = await Indicator.objects.get(code=stock_code)
     # 获取指数数据
+    # 时间格式转换
+    start_date=datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
+    end_date=datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
     exponent_data = ak.index_zh_a_hist(symbol=stock_code, period=PERIOD.DAILY,
                                        start_date=start_date,
                                        end_date=end_date)
@@ -75,6 +78,9 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     exponent_data["trade_date"] = exponent_data["trade_date"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d"))
     # 2.处理na值 数据量大直接drop即可
     exponent_data.dropna(inplace=True)
+    # 批量生成id
+    exponent_data["id"] = exponent_data["trade_date"].apply(lambda x: snowflake_instance.get_id())
+    exponent_data["indicator_id"] = indicator.id
     # 查询出最新的一条日期对象
     one = await StockData.objects.filter(indicator_id=indicator.id).order_by("-trade_date").first_or_none()
     if one is None:
@@ -82,13 +88,10 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
         log.info("开始全量插入数据")
         if not exponent_data.empty:
             try:
-                # 批量生成id
-                exponent_data["id"] = exponent_data["trade_date"].apply(lambda x: snowflake_instance.get_id())
-                exponent_data["indicator_id"] = indicator.id
                 stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                      axis=1).tolist()
                 await StockData.objects.bulk_create(stock_objects)
-                log.info("股票指标数据全量入库成功")
+                log.info("股票指标数据全量入库成功共【{}】条",len(stock_objects))
                 return True
             except Exception as e:
                 log.exception(e)
@@ -112,7 +115,7 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
             stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                  axis=1).tolist()
             await StockData.objects.bulk_create(stock_objects)
-            log.info("股票指标数据增量入库成功")
+            log.info("股票指标数据增量入库成功共【{}】条",len(stock_objects))
             return True
 
         except Exception as e:
@@ -125,25 +128,20 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
     """从数据库获取数据并返回dataFrame
     :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
-    :param start_date: 起始时间 default->"19700101"
-    :param end_date: 结束时间 default->now()
-    :return pandas.DataFrame
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: pandas.DataFrame
     :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
-    start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-    if end_date is not None:
-        end_date = datetime.strptime(end_date, "%Y-%m-%d")
-    else:
-        end_date=datetime.strftime(datetime.now(), "%Y-%m-%d")
     try:
-        indicator = await Indicator.objects.filter(code=stock_code).get()
+        indicator = await Indicator.objects.filter(code=stock_code).get_or_none()
         if indicator is None:
             log.info("指标不存在，返回空列表")
             return pd.DataFrame()
         result: list[StockData] = await StockData.objects.filter(indicator_id=indicator.id, trade_date__gte=start_date,
                                                                  trade_date__lte=end_date).all()
-        if result is None:
+        if len(result)==0:
             log.info("时间范围内数据为空，返回空列表")
             return pd.DataFrame()
         # 转换成dateFrame
@@ -157,34 +155,26 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
 
 
 async def export_to_csv(db: Database = database, stock_code: str = None,
-                        start_date: str = "19700101", end_date: str = None) -> str|None:
+                        start_date: str = "2000-01-01", end_date: str = None) -> str|None:
     """导出数据到csv文件
     :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
-    :param start_date: 起始时间 default->"19700101"
-    :param end_date: 结束时间 default->now()
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
     :raise BusinessException
-    :return FilePath
+    :return: FilePath
     """
     file_path:Path=None
     try:
-        start = start_date
-        end = end_date
-        # 时间格式转换
-        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-        if end_date is not None:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
         # 生成路径
         file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
         # 转化成相对路径返回
         relative_path=file_path.relative_to(project_root)
-        if os.path.exists(file_path.parent):
+        if os.path.exists(file_path):
             log.info("路径文件已存在，无需创建:【{}】",relative_path)
             return str(relative_path)
         #获取数据
-        csv_date = await get_stock_data(stock_code=stock_code, start_date=start, end_date=end)
+        csv_date = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
         if csv_date.empty:
             log.info("数据为空，无需导出")
             return None
@@ -207,15 +197,3 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
 
 
 
-async def main():
-    await database.connect()
-    # await crawl_sock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101",
-    #                       end_date=datetime.strftime(datetime.now(), "%Y%m%d"))
-    # date_ = await get_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101", )
-    # print(date_)
-    await export_to_csv(stock_code=ExponentEnum.SZCZ.get_code(), start_date="19700101", )
-    await database.disconnect()
-
-
-if __name__ == '__main__':
-    asyncio.run(main())

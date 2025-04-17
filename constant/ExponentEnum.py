@@ -44,6 +44,14 @@ class ExponentEnum(Enum):
                 return member.get_name()
         return None
 
+    # 获取枚举对象
+    @classmethod
+    def get_enum_by_code(cls, stock_code):
+        for member in cls:
+            if member.get_code() == stock_code:  # 比较的是代码
+                return member
+        return None
+
 
 # 测试示例
 if __name__ == "__main__":

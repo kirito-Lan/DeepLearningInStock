@@ -1,8 +1,8 @@
-import aiounittest
+import unittest
 from repository import BaseSql
 from model.entity.BaseMeta.BaseMeta import database
 
-class MyTestCase(aiounittest.AsyncTestCase):
+class MyTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_sql(self):
         await database.connect()  # 连接数据库
         query = BaseSql.isIndicateExist
@@ -14,4 +14,4 @@ class MyTestCase(aiounittest.AsyncTestCase):
         await database.disconnect()  # 断开数据库连接
 
 if __name__ == '__main__':
-    aiounittest.main()
+    unittest.main()

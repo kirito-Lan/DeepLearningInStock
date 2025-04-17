@@ -56,7 +56,6 @@ CREATE TABLE stock_data (
     index idx_trade_date (trade_date)
 ) ENGINE=InnoDB;
 
-create index idx_trade_date on stock_data(trade_date);
 
 
 

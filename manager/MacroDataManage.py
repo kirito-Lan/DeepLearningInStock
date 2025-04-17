@@ -1,7 +1,7 @@
 # 获取中国宏观数据 cpi ppi pmi 并且入库
-import asyncio
+
 import os
-from datetime import datetime
+
 from pathlib import Path
 
 import akshare as ak
@@ -32,7 +32,7 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
     该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
     :param types: 获取的宏观书据类型 DataTypeEnum
     :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
-    :return bool
+    :return: bool
     """
     try:
         # 根据传入的类型，调用对应的 akshare 接口
@@ -130,23 +130,18 @@ def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
     return data_set
 
 
-async def get_macro_data(*, db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
-                         start_date: str = "19700101", end_date: str = None) -> pd.DataFrame:
+async def get_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
+                         start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
     """
     方法用于从数据库中获取数据并且封装成panda.DateFrame形式
     :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
     :param types: DataTypeEnum
-    :param start_date: 起始时间 default->"19700101"
-    :param end_date: 结束时间 default->now()
-    :return pandas.DataFrame
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: pandas.DataFrame
     """
-    log.info("入口参数:【types:{}】,【start_date:{}】,【end_date:{}】")
+    log.info("入口参数:【types:{}】,【start_date:{}】,【end_date:{}】", types, start_date, end_date)
     try:
-        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-        if end_date is not None:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
         # 获取指标中的id
         indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode)
                                            .bindparams(code=types.value[1])))["id"]
@@ -173,24 +168,17 @@ async def get_macro_data(*, db: Database = database, types: DataTypeEnum = DataT
 
 
 async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
-                        start_date: str = "19700101", end_date: str = None) -> str|None:
+                        start_date: str = "2000-01-01", end_date: str = None) -> str|None:
     """ 导出数据到csv文件
     :param db: 数据库数据源无需传入
     :param types: DataTypeEnum
-    :param start_date: 起始时间 default->"19700101"
-    :param end_date: 结束时间 default->now()
-    :return FilePath
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: FilePath
     :raise BusinessException
     """
     file_path:Path=None
     try:
-        start=start_date
-        end=end_date
-        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-        if end_date is not None:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
         file_path = project_root / "resources" / "csvFiles" / f"macro_{types.value[1]}_{start_date}_{end_date}.csv"
         #转化成相对路径
         relative_path=file_path.relative_to(project_root)
@@ -198,7 +186,7 @@ async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeE
             log.info("路径文件已存在，无需创建:【{}】",relative_path)
             return str(relative_path)
         # 获取数据
-        data_frame = await get_macro_data(types=types, start_date=start, end_date=end)
+        data_frame = await get_macro_data(types=types, start_date=start_date, end_date=end_date)
         if data_frame.empty:
             log.info("数据为空")
             return None
@@ -249,15 +237,4 @@ def clean_date(china_macro_data: pd.DataFrame):
     china_macro_data["日期"] = china_macro_data["日期"].apply(lambda d: d.replace(day=1))
 
 
-async def main():
-    """ 方法测试"""
-    await database.connect()
-    # await save_or_update_macro_data(types=DataTypeEnum.PMI)
-    # res = await get_macro_data(types=DataTypeEnum.PMI)
-    # print(res)
-    await export_to_csv(types=DataTypeEnum.PMI)
-    await database.disconnect()
 
-
-if __name__ == '__main__':
-    asyncio.run(main())

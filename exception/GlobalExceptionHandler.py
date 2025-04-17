@@ -23,3 +23,11 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
         status_code=500,
         content={"code": 500, "msg": exc.errors(), "data": None},
     )
+
+# Value error
+async def value_error_handler(request: Request, exc: ValueError):
+    log.info(str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={"code": 500, "msg": exc.__str__(), "data": None},
+    )
