@@ -2,6 +2,7 @@
 import asyncio
 import os
 from datetime import datetime
+from pathlib import Path
 
 import akshare as ak
 from databases import Database
@@ -170,7 +171,7 @@ async def get_macro_data(*, db: Database = database, types: DataTypeEnum = DataT
     # 删除指定列
     return data_frame
 
-#FIXME 后期使用缓存优化
+
 async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
                         start_date: str = "19700101", end_date: str = None) -> str|None:
     """ 导出数据到csv文件
@@ -181,27 +182,39 @@ async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeE
     :return FilePath
     :raise BusinessException
     """
+    file_path:Path=None
     try:
-        data_frame = await get_macro_data(types=types, start_date=start_date, end_date=end_date)
+        start=start_date
+        end=end_date
+        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
+        if end_date is not None:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
+        file_path = project_root / "resources" / "csvFiles" / f"macro_{types.value[1]}_{start_date}_{end_date}.csv"
+        #转化成相对路径
+        relative_path=file_path.relative_to(project_root)
+        if os.path.exists(file_path):
+            log.info("路径文件已存在，无需创建:【{}】",relative_path)
+            return str(relative_path)
+        # 获取数据
+        data_frame = await get_macro_data(types=types, start_date=start, end_date=end)
         if data_frame.empty:
             log.info("数据为空")
             return None
         # 重命名列名
         data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
                                    "previous_value": "前值"}, inplace=True)
-        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-        if end_date is not None:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
-        # 生成数据
-        file_path = project_root / "resources" / "csvFiles" / f"macro_{types.value[1]}_{start_date}_{end_date}.csv"
+        # 生成文件
         data_frame.to_csv(file_path, index=False)
-        log.info("导出数据成功 FilePath:【{}】",file_path)
-        return str(file_path)
+        log.info("导出数据成功 FilePath:【{}】",relative_path)
+        return str(relative_path)
     except Exception as e:
-        if 'file_path' in locals() and os.path.exists(file_path):
-            os.remove(file_path)
+        try:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+        except NameError:
+            pass
         log.exception(e)
         raise BusinessException(code=500, msg="导出数据失败")
 

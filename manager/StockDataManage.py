@@ -1,6 +1,7 @@
 import asyncio
 import os
 from datetime import datetime
+from pathlib import Path
 
 import akshare as ak
 from databases import Database
@@ -154,7 +155,7 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
         log.exception(e)
         raise BusinessException(code=500, msg="获取数据失败")
 
-# FIXME 后期优化缓存
+
 async def export_to_csv(db: Database = database, stock_code: str = None,
                         start_date: str = "19700101", end_date: str = None) -> str|None:
     """导出数据到csv文件
@@ -165,8 +166,25 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
     :raise BusinessException
     :return FilePath
     """
+    file_path:Path=None
     try:
-        csv_date = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
+        start = start_date
+        end = end_date
+        # 时间格式转换
+        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
+        if end_date is not None:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
+        # 生成路径
+        file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
+        # 转化成相对路径返回
+        relative_path=file_path.relative_to(project_root)
+        if os.path.exists(file_path.parent):
+            log.info("路径文件已存在，无需创建:【{}】",relative_path)
+            return str(relative_path)
+        #获取数据
+        csv_date = await get_stock_data(stock_code=stock_code, start_date=start, end_date=end)
         if csv_date.empty:
             log.info("数据为空，无需导出")
             return None
@@ -175,20 +193,15 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
                          "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
                          "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=True)
 
-        start_date = datetime.strftime(datetime.strptime(start_date, "%Y%m%d"), "%Y-%m-%d")
-        if end_date is not None:
-            end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            end_date = datetime.strftime(datetime.now(), "%Y-%m-%d")
-        # 生成路径
-        file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
         csv_date.to_csv(file_path, index=False)
-        log.info("导出数据成功 FilePath:【{}】", file_path)
-        return str(file_path)
+        log.info("导出数据成功 FilePath:【{}】", relative_path)
+        return str(relative_path)
     except Exception as e:
-        # 出现异常删除文件
-        if 'file_path' in locals() and os.path.exists(file_path):
-            os.remove(file_path)
+        try:
+            if file_path and os.path.exists(file_path):  # 确保 file_path 已被赋值
+                os.remove(file_path)
+        except NameError:
+            pass
         log.exception(e)
         raise BusinessException(code=500, msg="导出数据失败")
 
