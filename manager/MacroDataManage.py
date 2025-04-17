@@ -27,12 +27,12 @@ data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
              "中国官方制造业PMI,月率报告,数据来自中国官方数据")
 
 
-async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> bool:
+async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> int:
     """
     该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
     :param types: 获取的宏观书据类型 DataTypeEnum
     :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
-    :return: bool
+    :return: 更新数据条数
     """
     try:
         # 根据传入的类型，调用对应的 akshare 接口
@@ -83,21 +83,20 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
             # 全量插入
             await MacroData.objects.bulk_create(data_set)
             log.info("数据进行全量插入")
-            return True
+            return len(data_set)
         else:
             try:
                 # 增量更新 直接将集合截断，存入余量即可
                 await MacroData.objects.bulk_create(data_set[count_result:])
                 log.info("数据进行增量更新")
-                return True
+                return len(data_set)-count_result
             except ModelListEmptyError:
                 log.info("数据已是最新，无需更新")
-                return False
+                return 0
         # print(china_macro_data)
     except Exception as e:
-        log.error("发生异常 数据清洗失败")
         log.exception(e)
-        return False
+        raise BusinessException(code=500, msg=e.__str__())
 
 
 def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
@@ -160,7 +159,6 @@ async def get_macro_data(db: Database = database, types: DataTypeEnum = DataType
         data_frame = pd.DataFrame(datas).drop(["id", "indicator_id", "created_at", "updated_at"], axis=1)
         data_frame.sort_values(by="report_date", ascending=False, inplace=True)
     except Exception as e:
-        log.error("获取数据失败")
         log.exception(e)
         return pd.DataFrame()
     # 删除指定列

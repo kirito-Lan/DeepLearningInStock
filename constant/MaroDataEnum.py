@@ -1,51 +1,47 @@
 from enum import Enum
 
+
 class DataTypeEnum(Enum):
     CPI = ("0", "CPI")
     PPI = ("1", "PPI")
     PMI = ("2", "PMI")
 
-    def __init__(self, code: str, name: str):
-        self.__code = code
-        self.__name = name
+    def __init__(self, code: str, display_name: str):
+        self._code = code
+        self._display_name = display_name
+
+    @property
+    def code(self) -> str:
+        return self._code
+
+    @property
+    def display_name(self) -> str:
+        return self._display_name
 
     @classmethod
-    def get_name_by_code(cls, code: str):
+    def get_name_by_code(cls, code: str) -> str | None:
         for member in cls:
-            if member.value[0] == code:
-                return member.value[1]
+            if member.code == code:
+                return member.display_name
         return None
 
     @classmethod
-    def get_code_by_name(cls, name: str):
+    def get_code_by_name(cls, name: str) -> str | None:
         for member in cls:
-            if member.value[1] == name:
-                return member.value[0]
+            if member.display_name == name:
+                return member.code
         return None
 
-    # getcode
-    def get_code(self)->str:
-        return self.__code
-
-    def get_name(self)->str:
-        return self.__name
+    @classmethod
+    def get_enum_by_name(cls, name: str):
+        for member in cls:
+            if member.display_name == name:
+                return member
+        return None
 
 
 class PERIOD:
     MONTHLY = "monthly"
     YEARLY = "yearly"
-    DAILY= "daily"
-    WEEkly = "weekly"
-
-
-
-
-# 示例用法
-if __name__ == "__main__":
-    print(PERIOD.MONTHLY)
-    # 通过 code 找 name
-    name = DataTypeEnum.get_name_by_code(1)
-    print(name)  # 输出: CPI
-    # 通过 name 找 code
-    code = DataTypeEnum.get_code_by_name("PPI")
-    print(code)  # 输出: 2
+    DAILY = "daily"
+    WEEKLY = "weekly"

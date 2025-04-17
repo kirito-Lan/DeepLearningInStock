@@ -1,6 +1,7 @@
 import asyncio
 import os
 from datetime import datetime
+from http.client import RemoteDisconnected
 from pathlib import Path
 
 import akshare as ak
@@ -29,13 +30,13 @@ index_descriptions = {
 
 
 async def crawl_sock_data(db: Database = database, stock_code: str = None,
-                          start_date: str = "2000-01-01", end_date: str = None) -> bool:
+                          start_date: str = "2000-01-01", end_date: str = None) -> int:
     """从东方财富网获取数据
     :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
-    :return: bool
+    :return: 更新的条数
     :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
@@ -63,9 +64,14 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     # 时间格式转换
     start_date=datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
     end_date=datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
-    exponent_data = ak.index_zh_a_hist(symbol=stock_code, period=PERIOD.DAILY,
-                                       start_date=start_date,
-                                       end_date=end_date)
+    exponent_data:pd.DataFrame=pd.DataFrame()
+    # FIXME 后期优化重试
+    try:
+        exponent_data = ak.index_zh_a_hist(symbol=stock_code, period=PERIOD.DAILY,
+                                           start_date=start_date,
+                                           end_date=end_date)
+    except RemoteDisconnected:
+        raise BusinessException(code=500, msg="网络异常请稍后重试")
     # 替换数据列的名称和对象对应
     exponent_data = exponent_data.rename(columns={"日期": "trade_date", "开盘": "open_price", "收盘": "close_price",
                                                   "最高": "high_price", "最低": "low_price", "成交量": "volume",
@@ -91,14 +97,15 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                 stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                      axis=1).tolist()
                 await StockData.objects.bulk_create(stock_objects)
-                log.info("股票指标数据全量入库成功共【{}】条",len(stock_objects))
-                return True
+                num:int=len(stock_objects)
+                log.info("股票指标数据全量入库成功共【{}】条",num)
+                return num
             except Exception as e:
                 log.exception(e)
                 raise BusinessException(code=500, msg="数据入库失败")
         else:
             log.info("数据为空不执行入库")
-        return True
+        return 0
     else:
         """增量更新"""
         try:
@@ -110,17 +117,18 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
             log.info("过滤出日期比目标值大的结果条数:【{}】", exponent_data.shape[0])
             if exponent_data.empty:
                 log.info("数据已是最新，无需更新")
-                return True
+                return 0
             # 处理数据，给对象赋值
             stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                  axis=1).tolist()
             await StockData.objects.bulk_create(stock_objects)
-            log.info("股票指标数据增量入库成功共【{}】条",len(stock_objects))
-            return True
+            num: int = len(stock_objects)
+            log.info("股票指标数据增量入库成功共【{}】条",num)
+            return num
 
         except Exception as e:
             log.exception(e)
-            raise BusinessException(code=500, msg="数据入库失败")
+            raise BusinessException(code=500, msg=e.__str__())
 
 
 async def get_stock_data(db: Database = database, stock_code: str = None,

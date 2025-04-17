@@ -19,6 +19,8 @@ where indicator_id = 1910991963423903744
 
 select count(1) num,max(trade_date) latestday
 from stock_data
-where indicator_id=1912867511930589184;
+where indicator_id=1912899769764810752;
+
+delete from stock_data where indicator_id=1;
 
 truncate table stock_data;
