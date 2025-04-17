@@ -15,13 +15,13 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 
 
 @router.post("/getStockCsv", response_model=BaseResponse)
-async def get_stock_csv(body: GetStockRequest):  # 参数校验
+async def get_stock_csv(body: GetStockRequest):
     """
     下载股票数据
     :param body: 请求体
     :return: CSV File
     """
-
+    # 校验参数
     exponent = ExponentEnum.get_enum_by_code(body.stock_code)
     if exponent is None:
         return BaseResponse[NoneType].fail(ErrorCode.PARAMS_ERROR)
