@@ -17,9 +17,12 @@ where indicator_id = 1910991963423903744
   and report_date between '2020-01-01' and '2023-01-01';
 
 
-select count(1) num,max(trade_date) latestday
+select count(1) num,max(trade_date) latestday,min(trade_date) oldest_date
 from stock_data
-where indicator_id=1912899769764810752;
+where indicator_id=1912437306833375232;
+
+select count(1) from stock_data where indicator_id=1912437306833375232;
+
 
 delete from stock_data where indicator_id=1;
 
