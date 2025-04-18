@@ -1,4 +1,5 @@
 from types import NoneType
+from typing import Dict
 
 from fastapi import APIRouter
 from starlette.responses import FileResponse, JSONResponse
@@ -75,3 +76,8 @@ async def crawl_stock_data(body: GetStockRequest):
                                                          end_date=end_date)
 
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{crawl_result}条数据")
+
+@router.get("/batchUpdateStockData", response_model=BaseResponse)
+async def batch_update_stock():
+    res= await StockDataManage.multiple_update_stock_data()
+    return BaseResponse[Dict[str,int]].success(res)

@@ -1,8 +1,9 @@
-import asyncio
 import os
+import time
 from datetime import datetime
 from http.client import RemoteDisconnected
 from pathlib import Path
+from typing import Dict
 
 import akshare as ak
 from databases import Database
@@ -41,8 +42,8 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     :raise BusinessException
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
-    if not stock_code:
-        stock_code = ExponentEnum.HS300.get_code()
+    stock_name = ExponentEnum.get_enum_by_code(stock_code).get_name()
+    log.info("开始获取【{}】数据",stock_name)
     # 查询indicator是否存在
     exits = await Indicator.objects.filter(code=stock_code).exists()
     if not exits:
@@ -93,14 +94,14 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                                    .order_by("-trade_date").first_or_none())
     if latest_one is None:
         """全量插入"""
-        log.info("开始全量插入数据")
+        log.info("开始全量插入【{}】数据",stock_name)
         if not exponent_data.empty:
             try:
                 stock_objects: list[StockData] = (exponent_data
                                                   .apply(lambda row: StockData(**row.to_dict()), axis=1).tolist())
                 await StockData.objects.bulk_create(stock_objects)
                 num: int = len(stock_objects)
-                log.info("股票指标数据全量入库成功共【{}】条", num)
+                log.info("【{}】数据全量入库成功共【{}】条",stock_name, num)
                 return num
             except Exception as e:
                 log.exception(e)
@@ -111,7 +112,7 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     else:
         """增量更新"""
         try:
-            log.info("开始增量更新数据")
+            log.info("开始增量更新【{}】数据",stock_name)
             # 获取最新一条数据的日期
             latest_date = pd.to_datetime(latest_one.trade_date)
             # 继续获取出最老的一条数据
@@ -124,14 +125,14 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                 ]
             log.info("过滤出日期区间外的结果条数:【{}】", exponent_data.shape[0])
             if exponent_data.empty:
-                log.info("数据已是最新，无需更新")
+                log.info("【{}】数据已是最新，无需更新",stock_name)
                 return 0
             # 处理数据，给对象赋值
             stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                  axis=1).tolist()
             await StockData.objects.bulk_create(stock_objects)
             num: int = len(stock_objects)
-            log.info("股票指标数据增量入库成功共【{}】条", num)
+            log.info("{}】数据增量入库成功共【{}】条",stock_name, num)
             return num
 
         except Exception as e:
@@ -227,3 +228,44 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
             pass
         log.exception(e)
         raise BusinessException(code=500, msg="导出数据失败")
+
+
+async def multiple_update_stock_data(start_date: str = "2000-01-01",
+                           end_date: str = datetime.now().strftime("%Y-%m-%d")) -> Dict[str, int]:
+    """
+    批量爬取各个股票指数数据：
+      - 遍历 ExponentEnum 中的每个股票指数
+      - 每次调用爬取接口，如果成功记录更新条数；
+        如果失败则在结果字典中记录为 -1（并不中断其他股票更新）
+      - 对初次失败（记录为 -1）的股票进行最后一次重试，
+        如果重试成功则更新结果字典中的值
+    返回结果字典形如：{"上证指数": 100, "深证成指": -1, ...}
+    """
+    update_results: Dict[str, int] = {}
+    error_stocks = []
+    # 初次爬取
+    for stock in ExponentEnum:
+        try:
+            count = await crawl_sock_data(stock_code= stock.get_code(),start_date= start_date,end_date= end_date)
+            update_results[stock.get_name()] = count
+            log.info(f"{stock.get_name()} 更新成功，条数: {count}")
+            # 休眠 2 秒，避免触发风控
+            time.sleep(2.0)
+        except Exception as e:
+            log.info(f"{stock.get_name()} 初次更新失败，错误: {e}")
+            update_results[stock.get_name()] = -1
+            error_stocks.append(stock)
+
+    # 对更新失败的股票进行最后一次重试
+    if error_stocks:
+        log.info("开始对失败股票进行最后一次重试...")
+        for stock in error_stocks:
+            try:
+                count = await crawl_sock_data(stock_code= stock.get_code(),start_date= start_date,end_date= end_date)
+                update_results[stock.get_name()] = count
+                log.info(f"重试成功：{stock.get_name()} 更新成功，条数: {count}")
+                time.sleep(2.0)
+            except Exception as e:
+                log.exception(f"重试失败：{stock.get_name()} 保持 -1，错误: {e}")
+    return update_results
+

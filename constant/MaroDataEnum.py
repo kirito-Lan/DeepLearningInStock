@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DataTypeEnum(Enum):
+class MacroDataEnum(Enum):
     CPI = ("0", "CPI")
     PPI = ("1", "PPI")
     PMI = ("2", "PMI")

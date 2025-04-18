@@ -1,9 +1,11 @@
 # 获取中国宏观数据 cpi ppi pmi 并且入库
 
 import os
+import time
 from http.client import RemoteDisconnected
 
 from pathlib import Path
+from typing import Dict
 
 import akshare as ak
 from databases import Database
@@ -16,7 +18,7 @@ from typing_extensions import deprecated
 from exception.BusinessException import BusinessException
 from utils.SnowFlake import snowflake_instance
 from config.LoguruConfig import log, project_root
-from constant.MaroDataEnum import PERIOD, DataTypeEnum
+from constant.MaroDataEnum import PERIOD, MacroDataEnum
 from repository import BaseSql
 from model.entity.BaseMeta.BaseMeta import database
 from model.entity.Indicator import Indicator
@@ -29,17 +31,19 @@ data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
              "中国官方制造业PMI,月率报告,数据来自中国官方数据")
 
 
-async def crawl_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> int:
+async def crawl_macro_data(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI) -> int:
     """
     该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
     :param types: 获取的宏观书据类型 DataTypeEnum
     :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
     :return: 更新数据条数
     """
+    macro_data_name=types.value[1]
+    log.info("开始获取【{}】数据",macro_data_name)
     try:
         # 根据传入的类型，调用对应的 akshare 接口
         china_macro_data = fetch_macro_data(types)
-        if china_macro_data is None:
+        if china_macro_data.empty:
             log.error("数据获取失败")
             return 0
 
@@ -59,7 +63,7 @@ async def crawl_macro_data(db: Database = database, types: DataTypeEnum = DataTy
             log.info("入库对象:【" + indicator.__str__() + "】")
         else:
             indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateId).bindparams(name=name)))["id"]
-            log.info("回查indicator_id【{}】", indicator_id)
+            # log.info("回查indicator_id【{}】", indicator_id)
 
         """数据清洗
         1 对日期进行清洗，发布日>20的日期检查下一个月有没有数据，没有归到下个月反之不处理。最后统一将日期刷成01号提取日期，转换成date对象
@@ -80,16 +84,16 @@ async def crawl_macro_data(db: Database = database, types: DataTypeEnum = DataTy
         if count_result == 0:
             # 全量插入
             await MacroData.objects.bulk_create(data_set)
-            log.info("数据进行全量插入")
+            log.info("【{}】数据进行全量插入",macro_data_name)
             return len(data_set)
         else:
             try:
                 # 增量更新 直接将集合截断，存入余量即可
                 await MacroData.objects.bulk_create(data_set[count_result:])
-                log.info("数据进行增量更新")
+                log.info("【{}】数据进行增量更新",macro_data_name)
                 return len(data_set)-count_result
             except ModelListEmptyError:
-                log.info("数据已是最新，无需更新")
+                log.info(f"【{macro_data_name}】数据已是最新，无需更新")
                 return 0
         # print(china_macro_data)
     except Exception as e:
@@ -107,11 +111,11 @@ def fetch_macro_data(types)->pd.DataFrame:
     :param types: 数据类型
     :return: pandas.DataFrame
     """
-    if types == DataTypeEnum.CPI:
+    if types == MacroDataEnum.CPI:
         return  ak.macro_china_cpi_monthly()
-    elif types == DataTypeEnum.PPI:
+    elif types == MacroDataEnum.PPI:
         return ak.macro_china_ppi_yearly()
-    elif types == DataTypeEnum.PMI:
+    elif types == MacroDataEnum.PMI:
         return ak.macro_china_pmi_yearly()
     else:
         raise BusinessException(code=500, msg="不支持的数据类型")
@@ -148,7 +152,7 @@ def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
     return data_set
 
 
-async def get_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
+async def get_macro_data(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI,
                          start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
     """
     方法用于从数据库中获取数据并且封装成panda.DateFrame形式
@@ -184,7 +188,7 @@ async def get_macro_data(db: Database = database, types: DataTypeEnum = DataType
     return data_frame
 
 
-async def export_to_csv(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI,
+async def export_to_csv(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI,
                         start_date: str = "2000-01-01", end_date: str = None) -> str|None:
     """ 导出数据到csv文件
     :param db: 数据库数据源无需传入
@@ -254,4 +258,43 @@ def clean_date(china_macro_data: pd.DataFrame):
     china_macro_data["日期"] = china_macro_data["日期"].apply(lambda d: d.replace(day=1))
 
 
+async def multiple_update_macro_data()->Dict[str,int]:
 
+    """
+    批量爬取各个股票指数数据：
+      - 遍历 ExponentEnum 中的每个股票指数
+      - 每次调用爬取接口，如果成功记录更新条数；
+        如果失败则在结果字典中记录为 -1（并不中断其他股票更新）
+      - 对初次失败（记录为 -1）的股票进行最后一次重试，
+        如果重试成功则更新结果字典中的值
+
+    返回结果字典形如：{"上证指数": 100, "深证成指": -1, ...}
+    """
+    update_results: Dict[str, int] = {}
+    error_stocks = []
+
+    # 初次爬取
+    for macro_data in MacroDataEnum:
+        try:
+            count = await crawl_macro_data(types= macro_data)
+            update_results[macro_data.display_name] = count
+            log.info(f"{macro_data.display_name} 更新成功，条数: {count}")
+            # 休眠 2 秒，避免触发风控
+            time.sleep(2.0)
+        except Exception as e:
+            log.info(f"{macro_data.display_name} 初次更新失败，错误: {e}")
+            update_results[macro_data.display_name] = -1
+            error_stocks.append(macro_data)
+
+    # 对更新失败的股票进行最后一次重试
+    if error_stocks:
+        log.info("开始对失败的宏观数据进行最后一次重试...")
+        for macro_data in error_stocks:
+            try:
+                count = await crawl_macro_data(types= macro_data)
+                update_results[macro_data.display_name] = count
+                log.info(f"重试成功：{macro_data.display_name} 更新成功，条数: {count}")
+                time.sleep(2.0)
+            except Exception as e:
+                log.exception(f"重试失败：{macro_data.display_name} 保持 -1，错误: {e}")
+    return update_results

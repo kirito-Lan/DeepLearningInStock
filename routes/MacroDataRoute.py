@@ -1,12 +1,12 @@
 from types import NoneType
-
+from typing import Dict
 
 from fastapi import APIRouter
 from starlette.responses import FileResponse
 
 from constant.BaseResponse import BaseResponse
 from constant.ErrorCode import ErrorCode
-from constant.MaroDataEnum import DataTypeEnum
+from constant.MaroDataEnum import MacroDataEnum
 from manager import MacroDataManage
 from model.dto.GetMacroDataRequest import GetMacroDataRequest
 from utils.ReFormatDate import format_date
@@ -22,7 +22,7 @@ async def get_macro_data(body: GetMacroDataRequest):
     :return:
     """
     # 获取枚举类
-    types = DataTypeEnum.get_enum_by_name(body.types)
+    types = MacroDataEnum.get_enum_by_name(body.types)
     if types is None:
         return BaseResponse[NoneType].fail(ErrorCode.PARAMS_ERROR)
     # 格式化时间
@@ -41,7 +41,7 @@ async def get_macro_csv(body: GetMacroDataRequest):
     :param body: 请求体
     :return: 文件流
     """
-    types = DataTypeEnum.get_enum_by_name(body.types)
+    types = MacroDataEnum.get_enum_by_name(body.types)
     if types is None:
         return BaseResponse[NoneType].fail(ErrorCode.PARAMS_ERROR)
     start_date, end_date = format_date(body.start_date, body.end_date)
@@ -58,8 +58,17 @@ async def crawl_macro_data(body: GetMacroDataRequest):
     :return: 更新数据条数
     """
 
-    types = DataTypeEnum.get_enum_by_name(name=body.types)
+    types = MacroDataEnum.get_enum_by_name(name=body.types)
     if types is None:
         return BaseResponse[NoneType].fail(ErrorCode.PARAMS_ERROR)
     count = await MacroDataManage.crawl_macro_data(types=types)
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{count}条数据")
+
+@router.get("/batchUpdateMacroData", response_model=BaseResponse)
+async def batch_update_macro_data():
+    """
+    爬取宏观经济数据
+    :return: 更新数据条数
+    """
+    res = await MacroDataManage.multiple_update_macro_data()
+    return BaseResponse[Dict[str,int]].success(res)

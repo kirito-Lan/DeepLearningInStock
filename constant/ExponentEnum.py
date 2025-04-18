@@ -21,7 +21,7 @@ class ExponentEnum(Enum):
     KC50 = ("科创50", "000688")
 
     def __init__(self, display_name: str, code: str):
-        self._display_name = display_name  # 用单下划线，避免与 Enum 内置的 .name 混淆
+        self._display_name = display_name
         self._code = code
 
     def get_code(self) -> str:
@@ -48,12 +48,20 @@ class ExponentEnum(Enum):
     @classmethod
     def get_enum_by_code(cls, stock_code):
         for member in cls:
-            if member.get_code() == stock_code:  # 比较的是代码
+            if member.get_code() == stock_code:
+                return member
+        return None
+
+    # 通过name找对应的枚举对象
+    @classmethod
+    def get_enum_by_name(cls, name):
+        for member in cls:
+            if member.get_name() == name:
                 return member
         return None
 
 
-# 测试示例
+
 if __name__ == "__main__":
-    print(ExponentEnum.get_code_by_name("上证指数"))  # 应该输出 "000001"
-    print(ExponentEnum.get_name_by_code("399001"))  # 应该输出 "深证成指"
+    print(ExponentEnum.get_code_by_name("上证指数"))
+    print(ExponentEnum.get_name_by_code("399001"))

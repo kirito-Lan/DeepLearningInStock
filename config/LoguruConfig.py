@@ -8,8 +8,8 @@ log_file_path = project_root / "resources" /"logs"/"app.log"
 
 logger.add(
     str(log_file_path),
-    rotation="50 MB",
-    retention="10 days",
+    rotation="20 MB",
+    retention="7 days",
     level="INFO",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level}| {file}:{line} | {function} | {message}"
 )
