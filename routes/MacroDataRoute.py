@@ -61,5 +61,5 @@ async def crawl_macro_data(body: GetMacroDataRequest):
     types = DataTypeEnum.get_enum_by_name(name=body.types)
     if types is None:
         return BaseResponse[NoneType].fail(ErrorCode.PARAMS_ERROR)
-    count = await MacroDataManage.save_or_update_macro_data(types=types)
+    count = await MacroDataManage.crawl_macro_data(types=types)
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{count}条数据")

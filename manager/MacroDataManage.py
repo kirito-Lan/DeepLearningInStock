@@ -1,6 +1,7 @@
 # 获取中国宏观数据 cpi ppi pmi 并且入库
 
 import os
+from http.client import RemoteDisconnected
 
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import akshare as ak
 from databases import Database
 from ormar.exceptions import ModelListEmptyError
 from sqlalchemy import text
+from tenacity import retry_if_exception_type, wait_fixed, stop_after_attempt, retry
 
 from typing_extensions import deprecated
 
@@ -27,7 +29,7 @@ data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
              "中国官方制造业PMI,月率报告,数据来自中国官方数据")
 
 
-async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> int:
+async def crawl_macro_data(db: Database = database, types: DataTypeEnum = DataTypeEnum.CPI) -> int:
     """
     该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
     :param types: 获取的宏观书据类型 DataTypeEnum
@@ -36,14 +38,10 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
     """
     try:
         # 根据传入的类型，调用对应的 akshare 接口
-        if types == DataTypeEnum.CPI:
-            china_macro_data = ak.macro_china_cpi_monthly()
-        elif types == DataTypeEnum.PPI:
-            china_macro_data = ak.macro_china_ppi_yearly()
-        elif types == DataTypeEnum.PMI:
-            china_macro_data = ak.macro_china_pmi_yearly()
-        else:
-            raise ValueError("不支持的数据类型")
+        china_macro_data = fetch_macro_data(types)
+        if china_macro_data is None:
+            log.error("数据获取失败")
+            return 0
 
         name = china_macro_data["商品"][0]
         # 判断 indicator 是否存在
@@ -97,6 +95,27 @@ async def save_or_update_macro_data(db: Database = database, types: DataTypeEnum
     except Exception as e:
         log.exception(e)
         raise BusinessException(code=500, msg=e.__str__())
+
+@retry(
+    stop=stop_after_attempt(5),                   # 最多重试5次
+    wait=wait_fixed(3),                           # 每次重试前等待3秒
+    retry=retry_if_exception_type(RemoteDisconnected)  # 只针对RemoteDisconnected异常重试
+)
+def fetch_macro_data(types)->pd.DataFrame:
+    """
+    获取宏观数据指标
+    :param types: 数据类型
+    :return: pandas.DataFrame
+    """
+    if types == DataTypeEnum.CPI:
+        return  ak.macro_china_cpi_monthly()
+    elif types == DataTypeEnum.PPI:
+        return ak.macro_china_ppi_yearly()
+    elif types == DataTypeEnum.PMI:
+        return ak.macro_china_pmi_yearly()
+    else:
+        raise BusinessException(code=500, msg="不支持的数据类型")
+
 
 
 def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:

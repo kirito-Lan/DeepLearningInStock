@@ -6,6 +6,7 @@ from pathlib import Path
 
 import akshare as ak
 from databases import Database
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
 from config.LoguruConfig import log, project_root
 from constant.ExponentEnum import ExponentEnum
@@ -62,16 +63,16 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
         indicator = await Indicator.objects.get(code=stock_code)
     # 获取指数数据
     # 时间格式转换
-    start_date=datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
-    end_date=datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
-    exponent_data:pd.DataFrame=pd.DataFrame()
-    # FIXME 后期优化重试
+    start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
+    exponent_data: pd.DataFrame = pd.DataFrame()
     try:
-        exponent_data = ak.index_zh_a_hist(symbol=stock_code, period=PERIOD.DAILY,
-                                           start_date=start_date,
-                                           end_date=end_date)
+        exponent_data = fetch_exponent_data(stock_code, start_date, end_date)
     except RemoteDisconnected:
         raise BusinessException(code=500, msg="网络异常请稍后重试")
+    if exponent_data.empty:
+        log.info("数据为空不执行入库")
+        return 0
     # 替换数据列的名称和对象对应
     exponent_data = exponent_data.rename(columns={"日期": "trade_date", "开盘": "open_price", "收盘": "close_price",
                                                   "最高": "high_price", "最低": "low_price", "成交量": "volume",
@@ -88,17 +89,18 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     exponent_data["id"] = exponent_data["trade_date"].apply(lambda x: snowflake_instance.get_id())
     exponent_data["indicator_id"] = indicator.id
     # 查询出最新的一条日期对象
-    one = await StockData.objects.filter(indicator_id=indicator.id).order_by("-trade_date").first_or_none()
-    if one is None:
+    latest_one: StockData = await (StockData.objects.filter(indicator_id=indicator.id)
+                                   .order_by("-trade_date").first_or_none())
+    if latest_one is None:
         """全量插入"""
         log.info("开始全量插入数据")
         if not exponent_data.empty:
             try:
-                stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
-                                                                     axis=1).tolist()
+                stock_objects: list[StockData] = (exponent_data
+                                                  .apply(lambda row: StockData(**row.to_dict()), axis=1).tolist())
                 await StockData.objects.bulk_create(stock_objects)
-                num:int=len(stock_objects)
-                log.info("股票指标数据全量入库成功共【{}】条",num)
+                num: int = len(stock_objects)
+                log.info("股票指标数据全量入库成功共【{}】条", num)
                 return num
             except Exception as e:
                 log.exception(e)
@@ -111,10 +113,16 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
         try:
             log.info("开始增量更新数据")
             # 获取最新一条数据的日期
-            latest_date = pd.to_datetime(one.trade_date)
-            # 过滤出日期比目标值大的结果
-            exponent_data = exponent_data[exponent_data["trade_date"] > latest_date]
-            log.info("过滤出日期比目标值大的结果条数:【{}】", exponent_data.shape[0])
+            latest_date = pd.to_datetime(latest_one.trade_date)
+            # 继续获取出最老的一条数据
+            oldest_one = await (StockData.objects.filter(indicator_id=indicator.id)
+                                .order_by("trade_date").first_or_none())
+            oldest_date = pd.to_datetime(oldest_one.trade_date)
+            # 过滤出区间外的数据
+            exponent_data = exponent_data[
+                (exponent_data["trade_date"] < oldest_date) | (exponent_data["trade_date"] > latest_date)
+                ]
+            log.info("过滤出日期区间外的结果条数:【{}】", exponent_data.shape[0])
             if exponent_data.empty:
                 log.info("数据已是最新，无需更新")
                 return 0
@@ -123,12 +131,27 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                                                                  axis=1).tolist()
             await StockData.objects.bulk_create(stock_objects)
             num: int = len(stock_objects)
-            log.info("股票指标数据增量入库成功共【{}】条",num)
+            log.info("股票指标数据增量入库成功共【{}】条", num)
             return num
 
         except Exception as e:
             log.exception(e)
             raise BusinessException(code=500, msg=e.__str__())
+
+
+@retry(
+    stop=stop_after_attempt(3),  # 最多重试5次
+    wait=wait_fixed(3),  # 每次重试前等待3秒
+    retry=retry_if_exception_type(RemoteDisconnected)  # 只针对RemoteDisconnected异常重试
+)
+def fetch_exponent_data(stock_code, start_date, end_date) -> pd.DataFrame:
+    """获取指标数据
+    :return: pandas.DataFrame
+    :raise RemoteDisconnected
+    """
+    return ak.index_zh_a_hist(symbol=stock_code, period=PERIOD.DAILY,
+                              start_date=start_date,
+                              end_date=end_date)
 
 
 async def get_stock_data(db: Database = database, stock_code: str = None,
@@ -149,7 +172,7 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
             return pd.DataFrame()
         result: list[StockData] = await StockData.objects.filter(indicator_id=indicator.id, trade_date__gte=start_date,
                                                                  trade_date__lte=end_date).all()
-        if len(result)==0:
+        if len(result) == 0:
             log.info("时间范围内数据为空，返回空列表")
             return pd.DataFrame()
         # 转换成dateFrame
@@ -163,7 +186,7 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
 
 
 async def export_to_csv(db: Database = database, stock_code: str = None,
-                        start_date: str = "2000-01-01", end_date: str = None) -> str|None:
+                        start_date: str = "2000-01-01", end_date: str = None) -> str | None:
     """导出数据到csv文件
     :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
@@ -172,24 +195,26 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
     :raise BusinessException
     :return: FilePath
     """
-    file_path:Path=None
+    file_path: Path = None
     try:
         # 生成路径
         file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
         # 转化成相对路径返回
-        relative_path=file_path.relative_to(project_root)
+        relative_path = file_path.relative_to(project_root)
         if os.path.exists(file_path):
-            log.info("路径文件已存在，无需创建:【{}】",relative_path)
+            log.info("路径文件已存在，无需创建:【{}】", relative_path)
             return str(relative_path)
-        #获取数据
+        # 获取数据
         csv_date = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
         if csv_date.empty:
             log.info("数据为空，无需导出")
             return None
         # 转换列名 英文转中文
-        csv_date.rename(columns={"trade_date":"日期","open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价", "low_price": "最低价",
-                         "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
-                         "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=True)
+        csv_date.rename(
+            columns={"trade_date": "日期", "open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价",
+                     "low_price": "最低价",
+                     "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
+                     "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=True)
 
         csv_date.to_csv(file_path, index=False)
         log.info("导出数据成功 FilePath:【{}】", relative_path)
@@ -202,6 +227,3 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
             pass
         log.exception(e)
         raise BusinessException(code=500, msg="导出数据失败")
-
-
-
