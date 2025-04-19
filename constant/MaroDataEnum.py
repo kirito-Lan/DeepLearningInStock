@@ -18,6 +18,12 @@ class MacroDataEnum(Enum):
     def display_name(self) -> str:
         return self._display_name
 
+    def get_code(self) -> str:
+        return self._code
+
+    def get_name(self) -> str:
+        return self._display_name
+
     @classmethod
     def get_name_by_code(cls, code: str) -> str | None:
         for member in cls:

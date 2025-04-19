@@ -43,7 +43,7 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     """
     log.info("入口参数:【stock_code={}, start_date={}, end_date={}】", stock_code, start_date, end_date)
     stock_name = ExponentEnum.get_enum_by_code(stock_code).get_name()
-    log.info("开始获取【{}】数据",stock_name)
+    log.info("开始获取【{}】数据", stock_name)
     # 查询indicator是否存在
     exits = await Indicator.objects.filter(code=stock_code).exists()
     if not exits:
@@ -94,14 +94,14 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                                    .order_by("-trade_date").first_or_none())
     if latest_one is None:
         """全量插入"""
-        log.info("开始全量插入【{}】数据",stock_name)
+        log.info("开始全量插入【{}】数据", stock_name)
         if not exponent_data.empty:
             try:
                 stock_objects: list[StockData] = (exponent_data
                                                   .apply(lambda row: StockData(**row.to_dict()), axis=1).tolist())
                 await StockData.objects.bulk_create(stock_objects)
                 num: int = len(stock_objects)
-                log.info("【{}】数据全量入库成功共【{}】条",stock_name, num)
+                log.info("【{}】数据全量入库成功共【{}】条", stock_name, num)
                 return num
             except Exception as e:
                 log.exception(e)
@@ -112,7 +112,7 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
     else:
         """增量更新"""
         try:
-            log.info("开始增量更新【{}】数据",stock_name)
+            log.info("开始增量更新【{}】数据", stock_name)
             # 获取最新一条数据的日期
             latest_date = pd.to_datetime(latest_one.trade_date)
             # 继续获取出最老的一条数据
@@ -125,14 +125,14 @@ async def crawl_sock_data(db: Database = database, stock_code: str = None,
                 ]
             log.info("过滤出日期区间外的结果条数:【{}】", exponent_data.shape[0])
             if exponent_data.empty:
-                log.info("【{}】数据已是最新，无需更新",stock_name)
+                log.info("【{}】数据已是最新，无需更新", stock_name)
                 return 0
             # 处理数据，给对象赋值
             stock_objects: list[StockData] = exponent_data.apply(lambda row: StockData(**row.to_dict()),
                                                                  axis=1).tolist()
             await StockData.objects.bulk_create(stock_objects)
             num: int = len(stock_objects)
-            log.info("{}】数据增量入库成功共【{}】条",stock_name, num)
+            log.info("{}】数据增量入库成功共【{}】条", stock_name, num)
             return num
 
         except Exception as e:
@@ -196,7 +196,8 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
     :raise BusinessException
     :return: FilePath
     """
-    file_path: Path = None
+    log.info("入口参数: stock_code:【】,start_date:【{}】,end_date:【{}】", stock_code, start_date, end_date)
+    file_path = None
     try:
         # 生成路径
         file_path = project_root / "resources" / "csvFiles" / f"stock_{stock_code}_{start_date}_{end_date}.csv"
@@ -205,24 +206,22 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
         if os.path.exists(file_path):
             log.info("路径文件已存在，无需创建:【{}】", relative_path)
             return str(relative_path)
+        # 确保目标目录存在，否则创建它
+        file_path.parent.mkdir(parents=False, exist_ok=True)
         # 获取数据
         csv_date = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
         if csv_date.empty:
             log.info("数据为空，无需导出")
             return None
         # 转换列名 英文转中文
-        csv_date.rename(
-            columns={"trade_date": "日期", "open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价",
-                     "low_price": "最低价",
-                     "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
-                     "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=True)
+        csv_date = await stock_colum_name_eng2cn(csv_date)
 
         csv_date.to_csv(file_path, index=False)
         log.info("导出数据成功 FilePath:【{}】", relative_path)
         return str(relative_path)
     except Exception as e:
         try:
-            if file_path and os.path.exists(file_path):  # 确保 file_path 已被赋值
+            if file_path and os.path.exists(file_path):
                 os.remove(file_path)
         except NameError:
             pass
@@ -230,8 +229,16 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
         raise BusinessException(code=500, msg="导出数据失败")
 
 
+async def stock_colum_name_eng2cn(data_frame: pd.DataFrame) -> pd.DataFrame:
+    return data_frame.rename(
+        columns={"trade_date": "日期", "open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价",
+                 "low_price": "最低价",
+                 "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
+                 "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=False)
+
+
 async def multiple_update_stock_data(start_date: str = "2000-01-01",
-                           end_date: str = datetime.now().strftime("%Y-%m-%d")) -> Dict[str, int]:
+                                     end_date: str = datetime.now().strftime("%Y-%m-%d")) -> Dict[str, int]:
     """
     批量爬取各个股票指数数据：
       - 遍历 ExponentEnum 中的每个股票指数
@@ -246,7 +253,7 @@ async def multiple_update_stock_data(start_date: str = "2000-01-01",
     # 初次爬取
     for stock in ExponentEnum:
         try:
-            count = await crawl_sock_data(stock_code= stock.get_code(),start_date= start_date,end_date= end_date)
+            count = await crawl_sock_data(stock_code=stock.get_code(), start_date=start_date, end_date=end_date)
             update_results[stock.get_name()] = count
             log.info(f"{stock.get_name()} 更新成功，条数: {count}")
             # 休眠 2 秒，避免触发风控
@@ -261,7 +268,7 @@ async def multiple_update_stock_data(start_date: str = "2000-01-01",
         log.info("开始对失败股票进行最后一次重试...")
         for stock in error_stocks:
             try:
-                count = await crawl_sock_data(stock_code= stock.get_code(),start_date= start_date,end_date= end_date)
+                count = await crawl_sock_data(stock_code=stock.get_code(), start_date=start_date, end_date=end_date)
                 update_results[stock.get_name()] = count
                 log.info(f"重试成功：{stock.get_name()} 更新成功，条数: {count}")
                 time.sleep(2.0)

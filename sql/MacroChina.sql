@@ -13,10 +13,10 @@ CREATE TABLE indicator
     frequency   VARCHAR(20) DEFAULT 'monthly', -- 指标频率，如'monthly' 或 'yearly'
     created_at  datetime    DEFAULT now(),
     updated_at  datetime    DEFAULT now() ON UPDATE now(),
-    INDEX idx_name (name)
+    INDEX idx_name (name),
+    INDEX idx_code (code)
 ) ENGINE = InnoDB;
 
-create index idx_code on indicator(code);
 
 drop table if exists macro_data;
 -- 数据表(存储宏观数据)
@@ -33,7 +33,7 @@ CREATE TABLE macro_data
     INDEX idx_indicator_id (indicator_id)       -- 加速根据指标查找
 ) ENGINE = InnoDB;
 
--- truncate table macro_data;
+
 -- 数据表(存储股票数据)
 drop table if exists stock_data;
 CREATE TABLE stock_data (

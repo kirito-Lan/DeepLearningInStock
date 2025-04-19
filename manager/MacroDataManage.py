@@ -212,8 +212,7 @@ async def export_to_csv(db: Database = database, types: MacroDataEnum = MacroDat
             log.info("数据为空")
             return None
         # 重命名列名
-        data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
-                                   "previous_value": "前值"}, inplace=True)
+        data_frame = await macro_colum_nam_eng2cn(data_frame)
         # 生成文件
         data_frame.to_csv(file_path, index=False)
         log.info("导出数据成功 FilePath:【{}】",relative_path)
@@ -226,6 +225,11 @@ async def export_to_csv(db: Database = database, types: MacroDataEnum = MacroDat
             pass
         log.exception(e)
         raise BusinessException(code=500, msg="导出数据失败")
+
+
+async def macro_colum_nam_eng2cn(data_frame):
+    return data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
+                               "previous_value": "前值"}, inplace=False)
 
 
 def get_next_month(year, month):
@@ -260,16 +264,6 @@ def clean_date(china_macro_data: pd.DataFrame):
 
 async def multiple_update_macro_data()->Dict[str,int]:
 
-    """
-    批量爬取各个股票指数数据：
-      - 遍历 ExponentEnum 中的每个股票指数
-      - 每次调用爬取接口，如果成功记录更新条数；
-        如果失败则在结果字典中记录为 -1（并不中断其他股票更新）
-      - 对初次失败（记录为 -1）的股票进行最后一次重试，
-        如果重试成功则更新结果字典中的值
-
-    返回结果字典形如：{"上证指数": 100, "深证成指": -1, ...}
-    """
     update_results: Dict[str, int] = {}
     error_stocks = []
 
