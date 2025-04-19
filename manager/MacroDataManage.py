@@ -262,33 +262,3 @@ def clean_date(china_macro_data: pd.DataFrame):
     china_macro_data["日期"] = china_macro_data["日期"].apply(lambda d: d.replace(day=1))
 
 
-async def multiple_update_macro_data()->Dict[str,int]:
-
-    update_results: Dict[str, int] = {}
-    error_stocks = []
-
-    # 初次爬取
-    for macro_data in MacroDataEnum:
-        try:
-            count = await crawl_macro_data(types= macro_data)
-            update_results[macro_data.display_name] = count
-            log.info(f"{macro_data.display_name} 更新成功，条数: {count}")
-            # 休眠 2 秒，避免触发风控
-            time.sleep(2.0)
-        except Exception as e:
-            log.info(f"{macro_data.display_name} 初次更新失败，错误: {e}")
-            update_results[macro_data.display_name] = -1
-            error_stocks.append(macro_data)
-
-    # 对更新失败的股票进行最后一次重试
-    if error_stocks:
-        log.info("开始对失败的宏观数据进行最后一次重试...")
-        for macro_data in error_stocks:
-            try:
-                count = await crawl_macro_data(types= macro_data)
-                update_results[macro_data.display_name] = count
-                log.info(f"重试成功：{macro_data.display_name} 更新成功，条数: {count}")
-                time.sleep(2.0)
-            except Exception as e:
-                log.exception(f"重试失败：{macro_data.display_name} 保持 -1，错误: {e}")
-    return update_results

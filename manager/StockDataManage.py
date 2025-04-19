@@ -237,42 +237,5 @@ async def stock_colum_name_eng2cn(data_frame: pd.DataFrame) -> pd.DataFrame:
                  "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=False)
 
 
-async def multiple_update_stock_data(start_date: str = "2000-01-01",
-                                     end_date: str = datetime.now().strftime("%Y-%m-%d")) -> Dict[str, int]:
-    """
-    批量爬取各个股票指数数据：
-      - 遍历 ExponentEnum 中的每个股票指数
-      - 每次调用爬取接口，如果成功记录更新条数；
-        如果失败则在结果字典中记录为 -1（并不中断其他股票更新）
-      - 对初次失败（记录为 -1）的股票进行最后一次重试，
-        如果重试成功则更新结果字典中的值
-    返回结果字典形如：{"上证指数": 100, "深证成指": -1, ...}
-    """
-    update_results: Dict[str, int] = {}
-    error_stocks = []
-    # 初次爬取
-    for stock in ExponentEnum:
-        try:
-            count = await crawl_sock_data(stock_code=stock.get_code(), start_date=start_date, end_date=end_date)
-            update_results[stock.get_name()] = count
-            log.info(f"{stock.get_name()} 更新成功，条数: {count}")
-            # 休眠 2 秒，避免触发风控
-            time.sleep(2.0)
-        except Exception as e:
-            log.info(f"{stock.get_name()} 初次更新失败，错误: {e}")
-            update_results[stock.get_name()] = -1
-            error_stocks.append(stock)
 
-    # 对更新失败的股票进行最后一次重试
-    if error_stocks:
-        log.info("开始对失败股票进行最后一次重试...")
-        for stock in error_stocks:
-            try:
-                count = await crawl_sock_data(stock_code=stock.get_code(), start_date=start_date, end_date=end_date)
-                update_results[stock.get_name()] = count
-                log.info(f"重试成功：{stock.get_name()} 更新成功，条数: {count}")
-                time.sleep(2.0)
-            except Exception as e:
-                log.exception(f"重试失败：{stock.get_name()} 保持 -1，错误: {e}")
-    return update_results
 

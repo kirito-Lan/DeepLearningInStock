@@ -7,6 +7,7 @@ from starlette.responses import FileResponse
 from constant.BaseResponse import BaseResponse
 from constant.ErrorCode import ErrorCode
 from manager.Strategy.ExportStategyManager import batch_export_to_excel_with_strategy
+from manager.Template import BatchUpdateTemplate
 from model.dto.BatchExportDataRequest import BatchExportDataRequest
 from utils.ReFormatDate import format_date
 
@@ -29,3 +30,8 @@ async def batch_export_to_excel(body: BatchExportDataRequest):
         return BaseResponse[NoneType].fail(ErrorCode.OPERATION_ERROR)
 
     return FileResponse(path, filename="BatchStockData.xlsx", media_type="application/octet-stream")
+
+@router.get("/batchUpdate/{el_type}",response_model=BaseResponse)
+async def batch_update_data(el_type:str):
+     res = await BatchUpdateTemplate.batch_update(el_type=el_type)
+     return BaseResponse[NoneType].success(res)

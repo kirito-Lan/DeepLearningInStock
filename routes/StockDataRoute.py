@@ -75,7 +75,3 @@ async def crawl_stock_data(body: GetStockRequest):
 
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{crawl_result}条数据")
 
-@router.get("/batchUpdateStockData", response_model=BaseResponse)
-async def batch_update_stock():
-    res = await StockDataManage.multiple_update_stock_data()
-    return BaseResponse[Dict[str, int]].success(res)

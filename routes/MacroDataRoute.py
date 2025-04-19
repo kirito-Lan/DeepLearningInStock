@@ -64,11 +64,3 @@ async def crawl_macro_data(body: GetMacroDataRequest):
     count = await MacroDataManage.crawl_macro_data(types=types)
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{count}条数据")
 
-@router.get("/batchUpdateMacroData", response_model=BaseResponse)
-async def batch_update_macro_data():
-    """
-    爬取宏观经济数据
-    :return: 更新数据条数
-    """
-    res = await MacroDataManage.multiple_update_macro_data()
-    return BaseResponse[Dict[str,int]].success(res)
