@@ -29,7 +29,7 @@ async def batch_export_to_excel(body: BatchExportDataRequest):
     if not os.path.exists(path):
         return BaseResponse[NoneType].fail(ErrorCode.OPERATION_ERROR)
 
-    return FileResponse(path, filename="BatchStockData.xlsx", media_type="application/octet-stream")
+    return FileResponse(path, filename=f"Batch{body.export_type.capitalize()}Data.xlsx", media_type="application/octet-stream")
 
 @router.get("/batchUpdate/{el_type}",response_model=BaseResponse)
 async def batch_update_data(el_type:str):
