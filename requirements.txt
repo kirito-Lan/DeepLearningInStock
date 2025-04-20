@@ -47,6 +47,7 @@ soupsieve==2.6
 SQLAlchemy==1.4.54
 starlette==0.46.1
 tabulate==0.9.0
+tenacity==9.1.2
 tqdm==4.67.1
 typing-inspection==0.4.0
 typing_extensions==4.13.1
@@ -58,4 +59,5 @@ webencodings==0.5.1
 win32_setctime==1.2.0
 wrapt==1.17.2
 xlrd==2.0.1
+XlsxWriter==3.2.3
 yarl==1.19.0
