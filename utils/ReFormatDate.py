@@ -3,7 +3,7 @@ from datetime import datetime
 from exception.BusinessException import BusinessException
 
 
-def format_date(start_date: str, end_date: str) -> [str, str]:
+def format_date(start_date: str, end_date: str) -> tuple[str, str]:
     """
     格式化时间参数，
     :param start_date:

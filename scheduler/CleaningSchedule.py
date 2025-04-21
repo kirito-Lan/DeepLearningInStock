@@ -5,6 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from config.LoguruConfig import log, project_root
 from model.entity.MacroData import MacroData
 from model.entity.StockData import StockData
+from routes import CommonRoute
 
 # 定时任务
 scheduler = BackgroundScheduler()
@@ -46,7 +47,37 @@ async def clean_db_bad_data():
     except Exception as e:
         log.exception(f"清理 Stock和Macro_data 库中的异常数据失败: {e}")
 
+
+async def update_stock_data_schedule():
+    """
+    异步函数：更新股票数据。
+    """
+    log.info("开始更新股票数据")
+    try:
+        res = await CommonRoute.batch_update_data("stock")
+        log.info(f"自动更新股票数据成功: {res}")
+    except Exception as e:
+        log.exception(f"更新股票数据失败: {e}")
+        pass
+
+
+async def update_macro_data_schedule():
+    """
+    异步函数：更新宏观数据。
+    """
+    log.info("开始更新宏观数据")
+    try:
+        res = await CommonRoute.batch_update_data("macro")
+        log.info(f"自动更新宏观数据成功: {res}")
+    except Exception as e:
+        log.exception(f"更新宏观数据失败: {e}")
+        pass
+
 # 每天凌晨 0 点执行一次清理任务
 scheduler.add_job(clean_archive_file, trigger='cron', hour=0)
 # 每天凌晨 1 点执行一次清理任务
 scheduler.add_job(clean_db_bad_data, trigger='cron', hour=1)
+# 每天18点执行一次更新任务
+scheduler.add_job(update_stock_data_schedule, trigger='cron', hour=18)
+# 每个月的20号执行一次更新任务
+scheduler.add_job(update_macro_data_schedule, trigger='cron', day=20)
