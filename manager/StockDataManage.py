@@ -31,10 +31,9 @@ index_descriptions = {
 }
 
 
-async def crawl_sock_data(db: Database = database, stock_code: str = None,
+async def crawl_sock_data( stock_code: str = None,
                           start_date: str = "2000-01-01", end_date: str = None) -> int:
     """从东方财富网获取数据
-    :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
@@ -155,10 +154,9 @@ def fetch_exponent_data(stock_code, start_date, end_date) -> pd.DataFrame:
                               end_date=end_date)
 
 
-async def get_stock_data(db: Database = database, stock_code: str = None,
-                         start_date: str = "19700101", end_date: str = None) -> pd.DataFrame:
+async def get_stock_data(stock_code: str = None,
+                         start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
     """从数据库获取数据并返回dataFrame
-    :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
@@ -178,7 +176,9 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
             return pd.DataFrame()
         # 转换成dateFrame
         datalist: list[dict] = [StockData.model_dump(item) for item in result]
-        data_frame = pd.DataFrame(datalist).drop(["id", "indicator_id", "created_at", "updated_at"], axis=1)
+        drop_columns=["id", "indicator_id", "created_at", "updated_at","turnover_amount",
+                      "amplitude","change_rate","change_amount","turnover_rate",]
+        data_frame = pd.DataFrame(datalist).drop(drop_columns, axis=1)
         data_frame.sort_values(by="trade_date", ascending=False, inplace=True)
         return data_frame
     except Exception as e:
@@ -186,10 +186,9 @@ async def get_stock_data(db: Database = database, stock_code: str = None,
         raise BusinessException(code=500, msg="获取数据失败")
 
 
-async def export_to_csv(db: Database = database, stock_code: str = None,
+async def export_to_csv( stock_code: str = None,
                         start_date: str = "2000-01-01", end_date: str = None) -> str | None:
     """导出数据到csv文件
-    :param db: 数据库数据源无需传入
     :param stock_code: 股票代码
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
@@ -232,9 +231,7 @@ async def export_to_csv(db: Database = database, stock_code: str = None,
 async def stock_colum_name_eng2cn(data_frame: pd.DataFrame) -> pd.DataFrame:
     return data_frame.rename(
         columns={"trade_date": "日期", "open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价",
-                 "low_price": "最低价",
-                 "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
-                 "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=False)
+                 "low_price": "最低价","volume": "成交量",}, inplace=False)
 
 
 

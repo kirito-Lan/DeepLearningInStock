@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Dict
 
 import akshare as ak
-from databases import Database
 from ormar.exceptions import ModelListEmptyError
-from sqlalchemy import text
 from tenacity import retry_if_exception_type, wait_fixed, stop_after_attempt, retry
 
 from typing_extensions import deprecated
@@ -19,8 +17,6 @@ from exception.BusinessException import BusinessException
 from utils.SnowFlake import snowflake_instance
 from config.LoguruConfig import log, project_root
 from constant.MaroDataEnum import PERIOD, MacroDataEnum
-from repository import BaseSql
-from model.entity.BaseMeta.BaseMeta import database
 from model.entity.Indicator import Indicator
 import pandas as pd
 
@@ -31,11 +27,10 @@ data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
              "中国官方制造业PMI,月率报告,数据来自中国官方数据")
 
 
-async def crawl_macro_data(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI) -> int:
+async def crawl_macro_data(types: MacroDataEnum = MacroDataEnum.CPI) -> int:
     """
     该方法用于获取宏观数据数据，如果没有数据那么就全量插入。反之进行增量更新
     :param types: 获取的宏观书据类型 DataTypeEnum
-    :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
     :return: 更新数据条数
     """
     macro_data_name=types.value[1]
@@ -49,7 +44,8 @@ async def crawl_macro_data(db: Database = database, types: MacroDataEnum = Macro
 
         name = china_macro_data["商品"][0]
         # 判断 indicator 是否存在
-        count = (await db.fetch_one(query=text(BaseSql.isIndicateExist).bindparams(name=name)))["num"]
+        # count = (await db.fetch_one(query=text(BaseSql.isIndicateExist).bindparams(name=name)))["num"]
+        count=MacroData.objects.filter(name=name).count()
         if count == 0:
             # 填充数据 构造主表入库信息
             frequency = PERIOD.MONTHLY
@@ -62,7 +58,8 @@ async def crawl_macro_data(db: Database = database, types: MacroDataEnum = Macro
             indicator_id = (await indicator.save()).id
             log.info("入库对象:【" + indicator.__str__() + "】")
         else:
-            indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateId).bindparams(name=name)))["id"]
+            # indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateId).bindparams(name=name)))["id"]
+            indicator_id = (await MacroData.objects.filter(name=name).get_or_none()).id
             # log.info("回查indicator_id【{}】", indicator_id)
 
         """数据清洗
@@ -79,8 +76,9 @@ async def crawl_macro_data(db: Database = database, types: MacroDataEnum = Macro
         data_set = clean_macro_data(china_macro_data, indicator_id)
         # log.info("入库对象:【macroData】条数:【" + str(len(data_set)) + "】")
         # 查看该指标下的数据条数，决定是全量插入还是新增数据
-        count_result = (await db.fetch_one(query=BaseSql.countMacroData,
-                                           values={"indicator_id": indicator_id}))["count"]
+        # count_result = (await db.fetch_one(query=BaseSql.countMacroData,
+        #                                    values={"indicator_id": indicator_id}))["count"]
+        count_result = await MacroData.objects.filter(indicator_id=indicator_id).count()
         if count_result == 0:
             # 全量插入
             await MacroData.objects.bulk_create(data_set)
@@ -152,11 +150,10 @@ def clean_macro_data(china_macro_data, indicator_id) -> list[MacroData]:
     return data_set
 
 
-async def get_macro_data(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI,
+async def get_macro_data( types: MacroDataEnum = MacroDataEnum.CPI,
                          start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
     """
     方法用于从数据库中获取数据并且封装成panda.DateFrame形式
-    :param db: 数据库源随项目启动初始化,没有特殊需求无需传入
     :param types: DataTypeEnum
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
@@ -165,11 +162,18 @@ async def get_macro_data(db: Database = database, types: MacroDataEnum = MacroDa
     log.info("入口参数:【types:{}】,【start_date:{}】,【end_date:{}】", types, start_date, end_date)
     try:
         # 获取指标中的id
-        indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode)
-                                           .bindparams(code=types.value[1])))["id"]
-        res = await MacroData.objects.database.fetch_all(
-            query=text(BaseSql.getLimitYearData).bindparams(indicator_id=indicator_id, start_date=start_date,
-                                                            end_date=end_date))
+        # indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode)
+        #                                    .bindparams(code=types.value[1])))["id"]
+        indicator = await MacroData.objects.filter(code=types.value[1]).get_or_none()
+        if indicator is None:
+            log.info("指标不存在")
+            return pd.DataFrame()
+        # res = await MacroData.objects.database.fetch_all(
+        #     query=text(BaseSql.getLimitYearData).bindparams(indicator_id=indicator_id, start_date=start_date,
+        #                                                     end_date=end_date))
+
+        res: list[MacroData] = await MacroData.objects.filter(indicator_id=indicator.id, report_date__gte=start_date,
+                                                                 report_date__lte=end_date).all()
         if not res:
             log.info("数据库中不存在该指标,获取数据为空")
             return pd.DataFrame()
@@ -179,7 +183,8 @@ async def get_macro_data(db: Database = database, types: MacroDataEnum = MacroDa
         # datas = [MacroData(**row) for row in res]
         # 转换成字典
         datas = [row.model_dump() for row in datas]
-        data_frame = pd.DataFrame(datas).drop(["id", "indicator_id", "created_at", "updated_at"], axis=1)
+        drop_columns = ["id", "indicator_id", "created_at", "updated_at","forecast_value","previous_value"]
+        data_frame = pd.DataFrame(datas).drop(drop_columns, axis=1)
         data_frame.sort_values(by="report_date", ascending=False, inplace=True)
     except Exception as e:
         log.exception(e)
@@ -188,10 +193,9 @@ async def get_macro_data(db: Database = database, types: MacroDataEnum = MacroDa
     return data_frame
 
 
-async def export_to_csv(db: Database = database, types: MacroDataEnum = MacroDataEnum.CPI,
+async def export_to_csv(types: MacroDataEnum = MacroDataEnum.CPI,
                         start_date: str = "2000-01-01", end_date: str = None) -> str|None:
     """ 导出数据到csv文件
-    :param db: 数据库数据源无需传入
     :param types: DataTypeEnum
     :param start_date:  format("YYYY-MM-DD")
     :param end_date:  format("YYYY-MM-DD")  default->now()
@@ -228,8 +232,7 @@ async def export_to_csv(db: Database = database, types: MacroDataEnum = MacroDat
 
 
 async def macro_colum_nam_eng2cn(data_frame):
-    return data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
-                               "previous_value": "前值"}, inplace=False)
+    return data_frame.rename(columns={"report_date": "日期", "current_value": "今值"}, inplace=False)
 
 
 def get_next_month(year, month):
