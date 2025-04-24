@@ -22,8 +22,8 @@ import pandas as pd
 
 from model.entity.MacroData import MacroData
 
-data_type = ("中国CPI数据,月率报告,数据来自中国官方数据",
-             "中国PPI数据,月率报告,数据来自中国官方数据",
+data_type = ("中国CPI数据,月率报告转换成通胀率,数据来自中国官方数据",
+             "中国PPI数据,年率指数报告,数据来自中国官方数据",
              "中国官方制造业PMI,月率报告,数据来自中国官方数据")
 
 
@@ -185,7 +185,9 @@ async def get_macro_data( types: MacroDataEnum = MacroDataEnum.CPI,
         datas = [row.model_dump() for row in datas]
         drop_columns = ["id", "indicator_id", "created_at", "updated_at","forecast_value","previous_value"]
         data_frame = pd.DataFrame(datas).drop(drop_columns, axis=1)
-        data_frame.sort_values(by="report_date", ascending=False, inplace=True)
+        # 类型转换
+        data_frame["report_date"] = pd.to_datetime(data_frame["report_date"], format="%Y-%m-%d", errors='coerce')
+        data_frame.sort_values(by="report_date", ascending=True, inplace=True)
     except Exception as e:
         log.exception(e)
         return pd.DataFrame()

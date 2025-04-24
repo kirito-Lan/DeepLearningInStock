@@ -179,7 +179,7 @@ async def get_stock_data(stock_code: str = None,
         drop_columns=["id", "indicator_id", "created_at", "updated_at","turnover_amount",
                       "amplitude","change_rate","change_amount","turnover_rate",]
         data_frame = pd.DataFrame(datalist).drop(drop_columns, axis=1)
-        data_frame.sort_values(by="trade_date", ascending=False, inplace=True)
+        data_frame.sort_values(by="trade_date", ascending=True, inplace=True)
         return data_frame
     except Exception as e:
         log.exception(e)
