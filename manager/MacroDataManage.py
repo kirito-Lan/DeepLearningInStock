@@ -164,7 +164,7 @@ async def get_macro_data( types: MacroDataEnum = MacroDataEnum.CPI,
         # 获取指标中的id
         # indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateIdByCode)
         #                                    .bindparams(code=types.value[1])))["id"]
-        indicator = await MacroData.objects.filter(code=types.value[1]).get_or_none()
+        indicator = await Indicator.objects.filter(code=types.value[1]).get_or_none()
         if indicator is None:
             log.info("指标不存在")
             return pd.DataFrame()
