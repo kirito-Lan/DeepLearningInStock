@@ -28,15 +28,16 @@ async def analyse_stock_data(stock_code, start_date, end_date):
     # 将date列设置为索引
     stock_data.set_index('trade_date', inplace=True)
     # 基本信息图
-    # await stock_basic_info(stock_code, stock_data)
-    # # 股票的趋势与季节性分解
-    # await stock_trend_seasonal(stock_code,stock_data)
-    # # 股票波动分析
-    # await stock_volatility(stock_code,stock_data)
-    # # 异常值检测
-    # await abnormal_value_detection(stock_code,stock_data)
-
-    #await stock_macro_correlation(stock_code=stock_code, stock_data=stock_data)
+    await stock_basic_info(stock_code, stock_data)
+    # 股票的趋势与季节性分解
+    await stock_trend_seasonal(stock_code,stock_data)
+    # 股票波动分析
+    await stock_volatility(stock_code,stock_data)
+    # 异常值检测
+    await abnormal_value_detection(stock_code,stock_data)
+    # 股票与宏观数据的相关性
+    await stock_macro_correlation(stock_code=stock_code, stock_data=stock_data)
+    #研究交易量和收盘价的相关性
     await stock_volume_price_correlation(stock_code=stock_code, stock_data=stock_data)
 
 
@@ -113,8 +114,8 @@ async def stock_trend_seasonal(stock_code, stock_data):
     plt.title('Residuals')
 
     plt.tight_layout()
-    plt.savefig('./picture/trend_seasonality_decomposition.svg')
     plt.show()
+    plt.savefig('./picture/trend_seasonality_decomposition.svg')
     plt.close()
 
 
@@ -169,6 +170,7 @@ async def stock_volatility(stock_code, stock_data):
     plt.show()
     # 保存图像
     plt.savefig('./picture/volatility_analysis.svg')
+    plt.close()
 
 
 async def abnormal_value_detection(stock_code, stock_data):
@@ -190,7 +192,8 @@ async def abnormal_value_detection(stock_code, stock_data):
     # 保存箱线图
     plt.tight_layout()
     plt.savefig('./picture/boxplot_outliers.svg')
-
+    plt.show()
+    plt.close()
     # 2. 使用 Z 分数法检测异常值
     # 定义 Z 分数函数，z = (x - mean) / std
     def z_score(df, column_name):
@@ -240,6 +243,7 @@ async def abnormal_value_detection(stock_code, stock_data):
     plt.tight_layout()
     plt.show()
     plt.savefig('./picture/abnormal_detection.svg')
+    plt.close()
 
 
 async def stock_macro_correlation(stock_code, stock_data):
@@ -415,7 +419,8 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     plt.tight_layout()
     plt.show()
     plt.savefig('./picture/volume_and_close.svg')
-
+    plt.close()
+    # 计算交易量和收盘价之间的相关性
     volume = stock_data['volume'].astype(int)
     close_price = stock_data['close_price'].astype(float)
     correlation, p_value = pearsonr(volume, close_price)
