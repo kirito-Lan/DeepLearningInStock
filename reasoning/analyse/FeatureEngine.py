@@ -176,7 +176,7 @@ def macroeconomic_feature(macro_data:pd.DataFrame):
 
 def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window: int = 200):
     """
-    对股票进行窗口划分同时提取各个窗口下的均值和波动性，原地修改传入的 DataFrame
+    对股票进行窗口划分同时提取各个窗口下的均值和波动性，同期起到对数据的平滑作用原地修改传入的 DataFrame
 
     分别计算三种窗口特征：
       1. 滚动窗口计算（重叠）：利用 rolling 方法对 Close 列计算每个滑动窗口内的均值和标准差，
@@ -185,19 +185,18 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
          利用 groupby 计算各组的均值和标准差，并将结果映射到 DataFrame 对应行上。
       3. 长期滚动窗口计算：使用较长的滚动窗口（如 long_window，默认200）计算长期均值和标准差，
          用以捕捉数据的长期趋势。
-
     新增列：
       - 'Mean'：滚动窗口内 Close 列的均值
       - 'Volatility'：滚动窗口内 Close 列的标准差（波动性）
       - 'Mean_non_overlap'：非重叠窗口内 Close 列的均值
+      - 'EMA':短期滑动窗口内的指数平均，对噪声敏感
       - 'Volatility_non_overlap'：非重叠窗口内 Close 列的标准差
       - 'Long_Mean'：长期滚动窗口内 Close 列的均值
       - 'Long_Volatility'：长期滚动窗口内 Close 列的标准差
-
-    修改完后，该函数直接修改 stock_data，无需返回新对象。
     """
-    # 1. 滚动窗口计算（短期）：计算窗口内的均值和标准差（波动性）
+    # 1. 滚动窗口计算（短期）：计算窗口内的均值、指数加权平均和标准差（波动性）
     stock_data['Mean'] = stock_data['Close'].rolling(window=window_size, min_periods=window_size).mean()
+    stock_data['EMA'] = stock_data['Close'].ewm(span=window_size, adjust=False).mean()
     stock_data['Volatility'] = stock_data['Close'].rolling(window=window_size, min_periods=window_size).std()
 
     # 2. 非重叠窗口计算：将数据分成每 window_size 个一组，计算各组均值和标准差
@@ -209,6 +208,50 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
     # 3. 长期滚动窗口计算：利用较长的窗口（例如 long_window，默认200）计算
     stock_data['Long_Mean'] = stock_data['Close'].rolling(window=long_window, min_periods=long_window).mean()
     stock_data['Long_Volatility'] = stock_data['Close'].rolling(window=long_window, min_periods=long_window).std()
+
+    """
+    绘制股票数据的各项特征指标：
+      - 第一子图：价格及移动均值（短期 rolling 均值、非重叠均值、长期 rolling 均值）
+      - 第二子图：波动性，各窗口的标准差特征（短期 rolling 标准差、非重叠标准差、长期 rolling 标准差）
+    """
+    plt.figure(figsize=(14, 10))
+
+    # 子图1: 绘制价格和均值特征
+    ax1 = plt.subplot(2, 1, 1)
+    ax1.plot(stock_data.index, stock_data['Close'], label='Close Price', color='black')
+    ax1.plot(stock_data.index, stock_data['Mean'], label='Short-term Mean (20)', linestyle='--', color='blue')
+    ax1.plot(stock_data.index, stock_data['EMA'], label='Short-term EMA (20)', linestyle='-.', color='orange')
+    ax1.plot(stock_data.index, stock_data['Mean_non_overlap'], label='Non-overlap Mean (20)', linestyle='-.',
+             color='green')
+    ax1.plot(stock_data.index, stock_data['Long_Mean'], label='Long-term Mean (200)', linestyle=':', color='red')
+
+    ax1.set_title('Price and Moving Averages')
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Price')
+    ax1.legend()
+
+    # 子图2: 绘制波动性特征
+    ax2 = plt.subplot(2, 1, 2)
+    ax2.plot(stock_data.index, stock_data['Volatility'], label='Short-term Volatility (20)', linestyle='--',
+             color='blue')
+    ax2.plot(stock_data.index, stock_data['Volatility_non_overlap'], label='Non-overlap Volatility (20)',
+             linestyle='-.', color='green')
+    ax2.plot(stock_data.index, stock_data['Long_Volatility'], label='Long-term Volatility (200)', linestyle=':',
+             color='red')
+
+    ax2.set_title('Volatility Features')
+    ax2.set_xlabel('Time')
+    ax2.set_ylabel('Volatility')
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.savefig('./picture/window_features.svg',bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+# 数据平滑处理
+def smooth_data(data: pd.Series, window_size: int = 20):
+    pass
 
 
 async def main():
