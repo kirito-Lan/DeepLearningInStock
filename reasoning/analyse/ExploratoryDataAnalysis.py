@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,17 @@ import seaborn as sns
 
 
 async def analyse_stock_data(stock_code, start_date, end_date):
+    
+    # 为每个股票单独一个文件夹
+    try:
+        stock = ExponentEnum.get_enum_by_code(stock_code)
+        if stock is None:
+            raise ValueError(f"股票代码{stock_code}不存在")
+        else:
+            os.makedirs(f"./picture/{stock_code}", exist_ok=True)
+    except Exception as e:
+        log.error("本系统中不存在该股票", e)
+    
     # 获取到股票的数据
     start_date, end_date = format_date(start_date=start_date, end_date=end_date)
     stock_data = await StockDataManage.get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
@@ -115,7 +127,7 @@ async def stock_trend_seasonal(stock_code, stock_data):
 
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/trend_seasonality_decomposition.svg')
+    plt.savefig(f'./picture/{stock_code}/trend_seasonality_decomposition.svg')
     plt.close()
 
 
@@ -169,7 +181,7 @@ async def stock_volatility(stock_code, stock_data):
     plt.tight_layout()
     plt.show()
     # 保存图像
-    plt.savefig('./picture/volatility_analysis.svg')
+    plt.savefig(f'./picture/{stock_code}/volatility_analysis.svg')
     plt.close()
 
 
@@ -191,7 +203,7 @@ async def abnormal_value_detection(stock_code, stock_data):
 
     # 保存箱线图
     plt.tight_layout()
-    plt.savefig('./picture/boxplot_outliers.svg')
+    plt.savefig(f'./picture/{stock_code}/boxplot_outliers.svg')
     plt.show()
     plt.close()
     # 2. 使用 Z 分数法检测异常值
@@ -242,7 +254,7 @@ async def abnormal_value_detection(stock_code, stock_data):
     # 保存检测到的异常值图
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/abnormal_detection.svg')
+    plt.savefig(f'./picture/{stock_code}/abnormal_detection.svg')
     plt.close()
 
 
@@ -315,7 +327,7 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/macro_correlation.svg')
+    plt.savefig(f'./picture/{stock_code}/macro_correlation.svg')
     # 设置 X 轴时间格式
     for ax in plt.gcf().axes:
         ax.xaxis.set_major_locator(mdates.YearLocator(5))
@@ -378,7 +390,7 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.ylabel('Predicted Values')
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/regression_actual_vs_pred.svg')
+    plt.savefig(f'./picture/{stock_code}/regression_actual_vs_pred.svg')
     plt.close()
 
     # 绘制三个宏观指标和股票收盘价的散点图
@@ -400,7 +412,7 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.ylabel(f'{stock_code} Closing Prices')
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/feature_and_close.svg')
+    plt.savefig(f'./picture/{stock_code}/feature_and_close.svg')
     plt.close()
     # endregion
 
@@ -418,7 +430,7 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     plt.grid(True)  # 显示网格线
     plt.tight_layout()
     plt.show()
-    plt.savefig('./picture/volume_and_close.svg')
+    plt.savefig(f'./picture/{stock_code}/volume_and_close.svg')
     plt.close()
     # 计算交易量和收盘价之间的相关性
     volume = stock_data['volume'].astype(int)

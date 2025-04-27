@@ -1,9 +1,11 @@
 # 股票特征工程
 import asyncio
+import os
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 import pandas as pd
+from statsmodels.tsa.filters.hp_filter import hpfilter
 from statsmodels.tsa.seasonal import seasonal_decompose
 import numpy as np
 from scipy import stats
@@ -15,26 +17,49 @@ from constant.ExponentEnum import ExponentEnum
 from constant.MaroDataEnum import MacroDataEnum
 from manager import StockDataManage, MacroDataManage
 from model.entity.BaseMeta.BaseMeta import database
-from model.entity.MacroData import MacroData
 from utils.ReFormatDate import format_date
 
 
 # 股票数据的特征工程
 async def feature_engineering(stock_code: str, start_date: str, end_date: str):
-
+    # TODO 后期修改删除列的作用域。特征工程和导出文件两个不同的功能
+    # 为每个股票代码单独一个文件夹存放图片
+    try:
+        stock = ExponentEnum.get_enum_by_code(stock_code)
+        if stock is None:
+            raise ValueError(f"股票代码{stock_code}不存在")
+        else:
+            os.makedirs(f"./picture/{stock_code}", exist_ok=True)
+    except Exception as e:
+        log.error("本系统中不存在该股票", e)
     # 获取合并的数据
-    merged_data= await get_merged_data(end_date, start_date, stock_code)
+    merged_data = await get_merged_data(end_date, start_date, stock_code)
 
-    # #时间序列分解
-    # decompose_time_series(stock_data=stock_data)
-    # # 交易量的特征
-    # volume_feature(stock_data=stock_data)
-    # # 窗口函数计算长期和短期的均值和波动性
-    # window_feature(stock_data=stock_data)
+    # 1.时间序列分解
+    print("Existing columns:", merged_data.columns.tolist())
+    decompose_time_series(stock_data=merged_data)
+    print("Existing columns:", merged_data.columns.tolist())
+    # 2.股票的价格和回报率特征
+    reward_rate_feature(stock_data=merged_data)
+    print("Existing columns:", merged_data.columns.tolist())
+    # 3.交易量的特征
+    volume_abnormal_feature(stock_data=merged_data, stock_code=stock_code)
+    print("Existing columns:", merged_data.columns.tolist())
+    # 4.窗口函数计算长期和短期的均值和波动性
+    stock_window_feature(merged_data=merged_data, stock_code=stock_code)
+    print("Existing columns:", merged_data.columns.tolist())
+    # 5.宏观数据窗口特征
+    merged_data=macro_window_feature(merged_data=merged_data, stock_code=stock_code)
+    print("Existing columns:", merged_data.columns.tolist())
 
+    # 滞后和交叉特征
+    lag_cross_feature(merged_data=merged_data)
+    # 归一化
+    normalize_data(merged_data=merged_data,stock_code=stock_code)
 
-
-    pass
+    # 保存数据
+    merged_data.fillna(0, inplace=True)
+    merged_data.to_csv(f"./processed_data/{stock_code}.csv")
 
 
 async def get_merged_data(end_date, start_date, stock_code):
@@ -56,6 +81,7 @@ async def get_merged_data(end_date, start_date, stock_code):
     ppi_data = ppi_data.set_index('report_date')
     pmi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.PMI, start_date=start, end_date=end)
     pmi_data = pmi_data.set_index('report_date')
+
     # 计算原始cpi ppi数据
     def _compute_index(x):
         """
@@ -68,6 +94,7 @@ async def get_merged_data(end_date, start_date, stock_code):
         result = Decimal('100') + Decimal(x)
         # 舍入到两位小数（half-up）
         return result.quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
+
     cpi_data['CPI'] = cpi_data['current_value'].apply(_compute_index)
     ppi_data['PPI'] = ppi_data['current_value'].apply(_compute_index)
     # 重置列名
@@ -75,6 +102,7 @@ async def get_merged_data(end_date, start_date, stock_code):
     ppi_data.columns = ['PPI_YOY', 'PPI']
     pmi_data.columns = ['PMI']
     stock_data.columns = ['Open', 'Close', 'High', 'Low', 'Volume']
+
     # 合并宏观数据和股票数据
     def _combined_macro_stock():
         """合并所有的宏观数据和股票数据
@@ -93,16 +121,16 @@ async def get_merged_data(end_date, start_date, stock_code):
         for col in ['CPI', 'PPI', 'PMI']:
             merged[col] = merged[col].ffill().bfill()
         # 删除['CPI_MOM', 'PPI_YOY']
-        merged.drop(columns=['CPI_MOM', 'PPI_YOY'], axis=1,inplace=True)
+        merged.drop(columns=['CPI_MOM', 'PPI_YOY'], axis=1, inplace=True)
         # 找出插值和填充后还存在nan的值
         missing_values = merged.isnull().sum()
         print("Missing Values: \n{}".format(missing_values))
         return merged
+
     merged_data = _combined_macro_stock()
     print("merged_data:\n{}".format(merged_data))
     # 返回合并后的数据
     return merged_data
-
 
 
 # 时间序列分解 seasonal_decompose和 波动计算
@@ -116,25 +144,39 @@ def decompose_time_series(stock_data: pd.DataFrame):
     Returns:
         None
     """
+    # 对股票收盘价数据进行季节性分解
     decomposition = seasonal_decompose(stock_data['Close'], model='multiplicative', period=252)
     trend = decomposition.trend  # 趋势
     seasonality = decomposition.seasonal  # 季节性
     residual = decomposition.resid  # 残差
-    stock_data['Trend'] = trend
-    stock_data['Seasonal'] = seasonality
-    stock_data['Residual'] = residual
+    stock_data['Close_Trend'] = trend
+    stock_data['Close_Seasonal'] = seasonality
+    stock_data['Close_Residual'] = residual
     # 计算波动性（20天滚动标准差）
-    stock_data['Volatility'] = stock_data['Close'].rolling(window=20).std()
+    stock_data['Close_Volatility'] = stock_data['Close'].rolling(window=20).std()
+    # 对CPI PPI 和 PMI 的季节性分解
+    for column in ['CPI', 'PPI', 'PMI']:
+        decomposition = seasonal_decompose(stock_data[column], model='multiplicative', period=365)
+        trend = decomposition.trend
+        seasonality = decomposition.seasonal
+        residual = decomposition.resid
+        stock_data[f'{column}_Trend'] = trend
+        stock_data[f'{column}_Seasonal'] = seasonality
+        stock_data[f'{column}_Residual'] = residual
+    # 计算波动性（30天滚动标准差）
+    for column in ['CPI', 'PPI', 'PMI']:
+        stock_data[f'{column}_Volatility'] = stock_data[column].rolling(window=30).std()
 
 
 # 股票的交易量特征和异常值检测修复
-def volume_feature(stock_data: pd.DataFrame):
+def volume_abnormal_feature(stock_data: pd.DataFrame, stock_code: str):
     """
     计算股票的交易量特征,交易量的变化率
     处理异常的交易数据 Z-Score方法标记
     同时使用四分位法寻找异常值，然后用线性插值修复
     Args:
         stock_data: 包含股票交易量数据的DataFrame
+        stock_code: 股票代码
     """
     # 计算交易量的变化率
     stock_data['Volume_Change'] = stock_data['Volume'].pct_change()
@@ -182,7 +224,7 @@ def volume_feature(stock_data: pd.DataFrame):
     # 同样设置相同的 y 轴范围
     plt.ylim(0, 1e9)
     plt.tight_layout()
-    plt.savefig('./picture/volume_correction.svg')
+    plt.savefig(f'./picture/{stock_code}/volume_correction.svg')
     plt.show()  # 显示图像后再关闭图表
     plt.close()
 
@@ -195,13 +237,19 @@ def reward_rate_feature(stock_data: pd.DataFrame):
     Args:
         stock_data: 包含股票价格数据的DataFrame
     """
+    # 如果 'Close' 是 Decimal 类型，先转换为 float
+    stock_data['Close_Float'] = stock_data['Close'].astype(float)
+
     # 计算对数收益率
-    stock_data['Log_Return'] = np.log(stock_data['Close'] / stock_data['Close'].shift(1))
-    # 计算每日涨跌幅
-    stock_data['Daily_PCT_Change'] = stock_data['Close'].pct_change()
+    stock_data['Log_Return'] = np.log(stock_data['Close_Float'] / stock_data['Close_Float'].shift(1))
+    # 计算每日涨跌幅（百分比变化）
+    stock_data['Daily_PCT_Change'] = stock_data['Close_Float'].pct_change() * 100
+    # 删除多余的列
+    stock_data.drop(['Close_Float'], axis=1, inplace=True)
 
 
-def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window: int = 100):
+def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_window: int = 100,
+                         stock_code: str = None):
     """
     对股票进行窗口划分同时提取各个窗口下的均值和波动性，同期起到对数据的平滑作用原地修改传入的 DataFrame
 
@@ -209,8 +257,8 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
       1. 滚动窗口计算（重叠）：利用 rolling 方法对 Close 列计算每个滑动窗口内的均值和标准差，
          当窗口内数据不足 window_size 个时返回 NaN。
       2. 非重叠窗口计算：将数据分成不重叠的组，每组包含 window_size 个数据点，
-         利用 groupby 计算各组的均值和标准差，并将结果映射到 DataFrame 对应行上。
-      3. 长期滚动窗口计算：使用较长的滚动窗口（如 long_window，默认200）计算长期均值和标准差，
+         利用 group by 计算各组的均值和标准差，并将结果映射到 DataFrame 对应行上。
+      3. 长期滚动窗口计算：使用较长的 滚动窗口（如 long_window，默认200）计算长期均值和标准差，
          用以捕捉数据的长期趋势。
     新增列：
       - 'Mean'：滚动窗口内 Close 列的均值
@@ -222,19 +270,19 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
       - 'Long_Volatility'：长期滚动窗口内 Close 列的标准差
     """
     # 1. 滚动窗口计算（短期）：计算窗口内的均值、指数加权平均和标准差（波动性）
-    stock_data['Short_Mean'] = stock_data['Close'].rolling(window=window_size, min_periods=window_size).mean()
-    stock_data['EMA'] = stock_data['Close'].ewm(span=window_size, adjust=False).mean()
-    stock_data['Short_Volatility'] = stock_data['Close'].rolling(window=window_size, min_periods=window_size).std()
+    merged_data['Mean'] = merged_data['Close'].rolling(window=window_size, min_periods=window_size).mean()
+    merged_data['EMA'] = merged_data['Close'].ewm(span=window_size, adjust=False).mean()
+    merged_data['Volatility'] = merged_data['Close'].rolling(window=window_size, min_periods=window_size).std()
 
     # 2. 非重叠窗口计算：将数据分成每 window_size 个一组，计算各组均值和标准差
-    stock_data['group'] = np.arange(len(stock_data)) // window_size
-    stock_data['Mean_non_overlap'] = stock_data.groupby('group')['Close'].transform('mean')
-    stock_data['Volatility_non_overlap'] = stock_data.groupby('group')['Close'].transform('std')
-    stock_data.drop(columns='group', inplace=True)
+    merged_data['group'] = np.arange(len(merged_data)) // window_size
+    merged_data['Mean_non_overlap'] = merged_data.groupby('group')['Close'].transform('mean')
+    merged_data['Volatility_non_overlap'] = merged_data.groupby('group')['Close'].transform('std')
+    merged_data.drop(columns='group', inplace=True)
 
     # 3. 长期滚动窗口计算：利用较长的窗口（long_window，默认200）计算
-    stock_data['Long_Mean'] = stock_data['Close'].rolling(window=long_window, min_periods=long_window).mean()
-    stock_data['Long_Volatility'] = stock_data['Close'].rolling(window=long_window, min_periods=long_window).std()
+    merged_data['Long_Mean'] = merged_data['Close'].rolling(window=long_window, min_periods=long_window).mean()
+    merged_data['Long_Volatility'] = merged_data['Close'].rolling(window=long_window, min_periods=long_window).std()
 
     """
     绘制股票数据的各项特征指标：
@@ -245,12 +293,12 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
 
     # 子图1: 绘制价格和均值特征
     ax1 = plt.subplot(2, 1, 1)
-    ax1.plot(stock_data.index, stock_data['Close'], label='Close Price', color='black')
-    ax1.plot(stock_data.index, stock_data['Mean'], label='Short-term Mean (20)', linestyle='--', color='blue')
-    ax1.plot(stock_data.index, stock_data['EMA'], label='Short-term EMA (20)', linestyle='-.', color='orange')
-    ax1.plot(stock_data.index, stock_data['Mean_non_overlap'], label='Non-overlap Mean (20)', linestyle='-.',
+    ax1.plot(merged_data.index, merged_data['Close'], label='Close Price', color='black')
+    ax1.plot(merged_data.index, merged_data['Mean'], label='Short-term Mean (20)', linestyle='--', color='blue')
+    ax1.plot(merged_data.index, merged_data['EMA'], label='Short-term EMA (20)', linestyle='-.', color='orange')
+    ax1.plot(merged_data.index, merged_data['Mean_non_overlap'], label='Non-overlap Mean (20)', linestyle='-.',
              color='green')
-    ax1.plot(stock_data.index, stock_data['Long_Mean'], label='Long-term Mean (200)', linestyle=':', color='red')
+    ax1.plot(merged_data.index, merged_data['Long_Mean'], label='Long-term Mean (200)', linestyle=':', color='red')
 
     ax1.set_title('Price and Moving Averages')
     ax1.set_xlabel('Time')
@@ -259,11 +307,11 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
 
     # 子图2: 绘制波动性特征
     ax2 = plt.subplot(2, 1, 2)
-    ax2.plot(stock_data.index, stock_data['Volatility'], label='Short-term Volatility (20)', linestyle='--',
+    ax2.plot(merged_data.index, merged_data['Volatility'], label='Short-term Volatility (20)', linestyle='--',
              color='blue')
-    ax2.plot(stock_data.index, stock_data['Volatility_non_overlap'], label='Non-overlap Volatility (20)',
+    ax2.plot(merged_data.index, merged_data['Volatility_non_overlap'], label='Non-overlap Volatility (20)',
              linestyle='-.', color='green')
-    ax2.plot(stock_data.index, stock_data['Long_Volatility'], label='Long-term Volatility (200)', linestyle=':',
+    ax2.plot(merged_data.index, merged_data['Long_Volatility'], label='Long-term Volatility (200)', linestyle=':',
              color='red')
 
     ax2.set_title('Volatility Features')
@@ -272,124 +320,186 @@ def window_feature(stock_data: pd.DataFrame, window_size: int = 20, long_window:
     ax2.legend()
 
     plt.tight_layout()
-    plt.savefig('./picture/window_features.svg', bbox_inches='tight')
+    plt.savefig(f'./picture/{stock_code}/stock_window_features.svg', bbox_inches='tight')
     plt.show()
     plt.close()
 
 
-def lag_cross_feature(merged: pd.DataFrame):
+def macro_window_feature(merged_data: pd.DataFrame, stock_code: str = None)->pd.DataFrame:
+    """
+    处理宏观数据特征（同比、环比、趋势分解等）
+    参数：
+        merged_data: 包含股票和宏观数据的DataFrame（索引为日期，已对齐到交易日）
+        macro_cols: 需要处理的宏观指标列名（如['CPI', 'PPI', 'PMI']）
+        lag_days: 宏观数据发布延迟天数（默认22天，约1个月）
+
+    返回：
+        处理后的DataFrame，新增特征列
+    """
+    macro_cols = ['CPI', 'PPI', 'PMI']
+
+    # 1. 处理数据延迟（避免未来信息）
+
+    # 2. 添加自然年月列
+    merged_data['Year'] = merged_data.index.year
+    merged_data['Month'] = merged_data.index.month
+
+    # 3. 对每个宏观指标计算特征
+    for col in macro_cols:
+        # 3.1 同比（YoY）：当前月 vs 去年同月
+        merged_data[f'{col}_LastYear'] = merged_data.groupby('Month')[col].shift(12)  # 12个月前的同月数据
+        merged_data[f'{col}_YoY'] = (merged_data[col] / merged_data[f'{col}_LastYear'] - 1) * 100
+
+        # 3.2 环比（MoM）：当前月 vs 上月
+        # 先按年月排序确保正确shift
+        merged_data_sorted = merged_data.sort_values(['Year', 'Month'])
+        merged_data_sorted[f'{col}_LastMonth'] = merged_data_sorted.groupby('Year')[col].shift(1)
+        merged_data = merged_data_sorted.sort_index()  # 恢复原始索引顺序
+        merged_data[f'{col}_MoM'] = (merged_data[col] / merged_data[f'{col}_LastMonth'] - 1) * 100
+
+        # 3.3 趋势分解（Hodrick-Prescott Filter）
+        cycle, trend = hpfilter(merged_data[col].dropna(), lamb=14400)
+        merged_data[f'{col}_Trend'] = trend
+        merged_data[f'{col}_Cycle'] = cycle
+
+        # 滚动窗口 = 12个月（自然月跨度），min_periods可设为1（因每月至少有一个数据点）
+        merged_data[f'{col}_12M_Mean'] = merged_data[col].rolling(window='252D', min_periods=1).mean()
+        merged_data[f'{col}_12M_Vol'] = merged_data[col].rolling(window='252D', min_periods=1).std()
+
+    # 5. 清理中间列
+    merged_data.drop(columns=['Year', 'Month'] +
+                             [f'{col}_LastYear' for col in macro_cols] +
+                             [f'{col}_LastMonth' for col in macro_cols],
+                     inplace=True)
+
+    print("Existing columns:", merged_data.columns.tolist())
+
+    # 6. 绘制特征图像（CPI）
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
+
+    # 图1：CPI 原始数据与 12 个月均值
+    axes[0].plot(merged_data.index, merged_data['CPI'], label='CPI', color='blue', alpha=0.6)
+    axes[0].plot(merged_data.index, merged_data['CPI_12M_Mean'], label='12M Mean', color='orange', linewidth=2)
+    axes[0].set_title('CPI and 12-Month Rolling Mean')
+    axes[0].legend()
+
+    # 图2：CPI YoY 变化率
+    axes[1].plot(merged_data.index, merged_data['CPI_YoY'], label='CPI YoY (%)', color='green')
+    axes[1].set_title('CPI Year-over-Year Change (%)')
+    axes[1].legend()
+
+    # 图3：CPI MoM 变化率
+    axes[2].plot(merged_data.index, merged_data['CPI_MoM'], label='CPI MoM (%)', color='red')
+    axes[2].set_title('CPI Month-over-Month Change (%)')
+    axes[2].legend()
+
+    plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}/macro_window_features.svg', bbox_inches='tight')
+    plt.show()
+    plt.close()
+    return merged_data
+
+def lag_cross_feature(merged_data: pd.DataFrame):
     """
     为股票数据和宏观数据构造滞后特征
     此函数直接原地修改传入的 stock_data，不返回新对象。
     """
+    # 将关键列转换为 float（如果它们是 Decimal 类型）
+    cols_to_convert = ['Close', 'Volatility', 'CPI_12M_Vol', 'Long_Mean', 'CPI_Trend',
+                       'CPI_YoY', 'PMI', 'PMI_Trend', 'Volume']
+    for col in cols_to_convert:
+        if col in merged_data.columns:
+            try:
+                merged_data[col] = merged_data[col].astype(float)
+            except Exception as e:
+                print(f"转换列 {col} 出错：{e}")
 
+    # 宏观数据缺失值处理策略（这里不再处理缺失，只构造滞后特征）
+    macro_cols = ['CPI', 'PPI', 'PMI']
 
-    #  宏观数据缺失值处理策略
-    # 1. 对宏观数据使用前向填充（假设数据发布后持续有效）
-    macro_cols = ['CPI', 'PPI', 'PMI', 'CPI_MOM', 'PPI_YOY']
-    merged[macro_cols] = merged[macro_cols].fillna(method='ffill')
+    # 处理数据延迟：对宏观数据采用 22 天滞后
+    for col in macro_cols:
+        merged_data[f"lag_{col}"] = merged_data[col].shift(22)
 
-    # 计算滞后特征，分别为滞后1天、5天、10天的收盘价
-    merged['Lag_1'] = merged['Close'].shift(1)
-    merged['Lag_5'] = merged['Close'].shift(5)
-    merged['Lag_10'] = merged['Close'].shift(10)
-
-    # 线性插值填充 NaN
-    merged['Lag_1'].interpolate(method='linear', inplace=True)
-    merged['Lag_5'].interpolate(method='linear', inplace=True)
-    merged['Lag_10'].interpolate(method='linear', inplace=True)
+    # 计算股票价格滞后特征：滞后 5,10,22 天的收盘价
+    merged_data['Lag_5'] = merged_data['Close'].shift(5)
+    merged_data['Lag_10'] = merged_data['Close'].shift(10)
+    merged_data['Lag_22'] = merged_data['Close'].shift(22)
 
     # 收益率计算（百分比）：(当日收盘价/前日收盘价 - 1)*100
-    merged['Return'] = merged['Close'].pct_change().mul(100).replace([float('inf'), -float('inf')], None)
+    merged_data['Return'] = merged_data['Close'].pct_change().mul(100).replace([float('inf'), -float('inf')], None)
 
-    # 宏观交叉特征（增加有效性检查）
-    required_macro = {
-        'Return_CPI_gap': ['Return', 'CPI_MOM'],
-        'Return_PPI_gap': ['Return', 'PPI_YOY'],
-        'PMI_change': ['PMI']
-    }
-    for feat, deps in required_macro.items():
-        if all(col in merged for col in deps):
-            if feat == 'PMI_change':
-                merged[feat] = merged['PMI'].pct_change()
-            else:
-                merged[feat] = merged[deps[0]] - merged[deps[1]]
-        else:
-            print(f"警告：无法创建特征 {feat}，缺少依赖列 {deps}")
+    # 波动性关联
+    merged_data['Volatility_Spread'] = merged_data['Volatility'] - merged_data['CPI_12M_Vol']
+    merged_data['Vol_PMI_Corr'] = merged_data['Volatility'].rolling(252, closed='left').corr(merged_data['PMI'])
 
+    # 趋势背离
+    merged_data['Trend_Inflation_Spread'] = merged_data['Long_Mean'] - merged_data['CPI_Trend']
 
+    # 宏观经济状态
+    merged_data['High_Inflation'] = (merged_data['CPI_YoY'] > 3).astype(int)
+    merged_data['Economic_Expansion'] = ((merged_data['PMI'] > 50) &
+                                         (merged_data['PMI_Trend'].diff() > 0)).astype(int)
 
+    # 实际价格
+    merged_data['Real_Price'] = merged_data['Close'] / (1 + merged_data['CPI_YoY'] / 100)
 
+    # 价格-成交量背离：5日收盘涨幅与成交量5日变化率的差值
+    merged_data['Price_Volume_Divergence'] = (
+            merged_data['Close'].pct_change(5) -
+            merged_data['Volume'].pct_change(5).abs()
+    )
 
+    # PMI-价格相关性（滚动1年，252个交易日）
+    merged_data['PMI_Price_Corr'] = merged_data['Close'].rolling(252).corr(merged_data['PMI'])
 
-
-def macroeconomic_feature(merged_data: pd.DataFrame):
-    # FIXME 这里修改为传入已经和股票数据合并的数据 时间频率已经是日了 修正代码逻辑
-    """
-    改进后的宏观特征工程，主要优化：
-    1. 基于业务逻辑的滚动窗口
-    2. 正确的季节性处理
-    3. 动态特征有效性检测
-    """
-    # 滞后特征（动态检测可用列）
-    for col in merged_data:
-        for lag in [1, 3, 12]:  # 月、季、年滞后
-            if f"{col}_lag{lag}" not in merged_data:
-                merged_data[f"{col}_lag{lag}"] = merged_data[col].shift(lag)
-
-    # 滚动特征（适应宏观数据频率）
-    windows = {
-        'monthly': 21,  # 约1个月交易日
-        'quarterly': 63,  # 约3个月
-        'annual': 252  # 约1年
-    }
-    for col in merged_data:
-        for win_name, win_size in windows.items():
-            sma_col = f"{col}_SMA_{win_name}"
-            std_col = f"{col}_STD_{win_name}"
-
-            if sma_col not in merged_data:
-                merged_data[sma_col] = merged_data[col].rolling(win_size, min_periods=1).mean()
-            if std_col not in merged_data:
-                merged_data[std_col] = merged_data[col].rolling(win_size, min_periods=1).std()
-
-    # 季节性分解（仅适用于足够长的序列）
-    if len(merged_data) > 3 * 365:  # 至少3年数据
-        try:
-            from statsmodels.tsa.seasonal import STL  # 更鲁棒的分解方法
-
-            for col in ['CPI', 'PPI']:
-                # 使用STL分解处理复杂季节模式
-                stl = STL(
-                    merged_data[col].interpolate(),
-                    period=365,  # 年周期
-                    robust=True
-                )
-                res = stl.fit()
-
-                merged_data[f"{col}_trend"] = res.trend
-                merged_data[f"{col}_seasonal"] = res.seasonal
-                merged_data[f"{col}_resid"] = res.resid
-        except ImportError:
-            print("建议安装statsmodels以获得完整季节分解功能")
-
-    # 日期特征（考虑节假日影响）
-    merged_data['day_of_month'] = merged_data.index.day
-    merged_data['is_month_end'] = merged_data.index.is_month_end.astype(int)
-
-    # 季度哑变量
-    merged_data['quarter'] = merged_data.index.quarter
-    macro_data = pd.get_dummies(merged_data, columns=['quarter'], prefix='qtr')
+    # 滞胀风险标识：当 CPI_YoY 大于该列75分位数且 PMI 小于 50 时标识为1
+    merged_data['Stagflation_Risk'] = ((merged_data['CPI_YoY'] > merged_data['CPI_YoY'].quantile(0.75))
+                                       & (merged_data['PMI'] < 50)).astype(int)
 
 
 # 归一化处理
-def normalize_data(data: pd.DataFrame):
+def normalize_data(merged_data: pd.DataFrame, stock_code: str):
     """
     对输入的 DataFrame 中的所有数值型列进行归一化处理，使得每一列的均值为 0，方差为 1。
 
     参数:
       data: 待归一化的 DataFrame
     """
+    # 选定要归一化的特征
+
+    features_to_normalize = ['Close', 'Volume', 'Volatility', 'CPI', 'PPI', 'PMI']
+
+    # 创建 Min-Max Scaler
+    scaler = MinMaxScaler()
+
+    # 对选定的特征进行归一化
+    df_normalized = merged_data.copy()  # 保留原数据集
+    df_normalized[features_to_normalize] = scaler.fit_transform(merged_data[features_to_normalize])
+
+    # 可视化归一化后的收盘价与交易量
+    plt.figure(figsize=(8, 6))
+
+    # 归一化后的收盘价曲线
+    plt.subplot(2, 1, 1)
+    plt.plot(df_normalized.index, df_normalized['Close'], label='Normalized Close Price', color='blue')
+    plt.title('Normalized Close Price')
+    plt.xlabel('Date')
+    plt.ylabel('Normalized Close Price')
+    plt.legend()
+
+    # 归一化后的交易量曲线
+    plt.subplot(2, 1, 2)
+    plt.plot(df_normalized.index, df_normalized['Volume'], label='Normalized Volume', color='green')
+    plt.title('Normalized  Trading Volume')
+    plt.xlabel('Date')
+    plt.ylabel('Normalized Volume')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}normalized_features_plot.svg')
+    plt.show()
+    plt.close()
 
 
 async def main():
