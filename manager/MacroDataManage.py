@@ -183,7 +183,7 @@ async def get_macro_data( types: MacroDataEnum = MacroDataEnum.CPI,
         # datas = [MacroData(**row) for row in res]
         # 转换成字典
         datas = [row.model_dump() for row in datas]
-        drop_columns = ["id", "indicator_id", "created_at", "updated_at","forecast_value","previous_value"]
+        drop_columns = ["id", "indicator_id", "created_at", "updated_at"]
         data_frame = pd.DataFrame(datas).drop(drop_columns, axis=1)
         # 类型转换
         data_frame["report_date"] = pd.to_datetime(data_frame["report_date"], format="%Y-%m-%d", errors='coerce')
@@ -193,6 +193,17 @@ async def get_macro_data( types: MacroDataEnum = MacroDataEnum.CPI,
         return pd.DataFrame()
     # 删除指定列
     return data_frame
+async def get_macro_data_local( types: MacroDataEnum = MacroDataEnum.CPI,
+                         start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
+    """
+    从该方法用于本地调用，get_macro_data 删除多余的数据列
+    :param types: DataTypeEnum
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: pandas.DataFrame
+    """
+    date_ = await get_macro_data(types=types, start_date=start_date, end_date=end_date)
+    return date_.drop(["forecast_value","previous_value"], axis=1)
 
 
 async def export_to_csv(types: MacroDataEnum = MacroDataEnum.CPI,
@@ -234,7 +245,8 @@ async def export_to_csv(types: MacroDataEnum = MacroDataEnum.CPI,
 
 
 async def macro_colum_nam_eng2cn(data_frame):
-    return data_frame.rename(columns={"report_date": "日期", "current_value": "今值"}, inplace=False)
+    return data_frame.rename(columns={"report_date": "日期", "current_value": "今值", "forecast_value": "预测值",
+                                      "previous_value": "前值"}, inplace=False)
 
 
 def get_next_month(year, month):

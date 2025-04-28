@@ -22,7 +22,6 @@ from utils.ReFormatDate import format_date
 
 # 股票数据的特征工程
 async def feature_engineering(stock_code: str, start_date: str, end_date: str):
-    # TODO 后期修改删除列的作用域。特征工程和导出文件两个不同的功能
     # 为每个股票代码单独一个文件夹存放图片
     try:
         stock = ExponentEnum.get_enum_by_code(stock_code)
@@ -69,18 +68,18 @@ async def get_merged_data(end_date, start_date, stock_code):
     """
     # 获取股票数据
     start_date, end_date = format_date(start_date=start_date, end_date=end_date)
-    stock_data = await StockDataManage.get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
+    stock_data = await StockDataManage.get_stock_data_local(stock_code=stock_code, start_date=start_date, end_date=end_date)
     stock_data["trade_date"] = pd.to_datetime(stock_data['trade_date'], format='%Y-%m-%d', errors='coerce')
     stock_data = stock_data.set_index('trade_date')
     # 数据库获取的CPI数据是月率MOM  PPI是年率 YOY PMI是原始数据需要计算的话需要进行转换恢复原始值
     start = stock_data.index[0]
     end = stock_data.index[-1]
     log.info(f"获取到数据库最新的股票起止时间：Start: {start}, End: {end}")
-    cpi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.CPI, start_date=start, end_date=end)
+    cpi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.CPI, start_date=start, end_date=end)
     cpi_data = cpi_data.set_index('report_date')
-    ppi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.PPI, start_date=start, end_date=end)
+    ppi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PPI, start_date=start, end_date=end)
     ppi_data = ppi_data.set_index('report_date')
-    pmi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.PMI, start_date=start, end_date=end)
+    pmi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PMI, start_date=start, end_date=end)
     pmi_data = pmi_data.set_index('report_date')
 
     # 计算原始cpi ppi数据

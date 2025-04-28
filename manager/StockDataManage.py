@@ -176,14 +176,24 @@ async def get_stock_data(stock_code: str = None,
             return pd.DataFrame()
         # 转换成dateFrame
         datalist: list[dict] = [StockData.model_dump(item) for item in result]
-        drop_columns=["id", "indicator_id", "created_at", "updated_at","turnover_amount",
-                      "amplitude","change_rate","change_amount","turnover_rate",]
+        drop_columns=["id", "indicator_id", "created_at", "updated_at"]
         data_frame = pd.DataFrame(datalist).drop(drop_columns, axis=1)
         data_frame.sort_values(by="trade_date", ascending=True, inplace=True)
         return data_frame
     except Exception as e:
         log.exception(e)
         raise BusinessException(code=500, msg="获取数据失败")
+async def get_stock_data_local(stock_code: str = None,
+                         start_date: str = "2000-01-01", end_date: str = None) -> pd.DataFrame:
+    """从该方法用于本地调用，区别于get_stock_data 删除多余的数据列
+    :param stock_code: 股票代码
+    :param start_date:  format("YYYY-MM-DD")
+    :param end_date:  format("YYYY-MM-DD")  default->now()
+    :return: pandas.DataFrame
+    :raise BusinessException
+    """
+    date_ = await get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
+    return date_.drop(["turnover_amount","amplitude","change_rate","change_amount","turnover_rate"], axis=1)
 
 
 async def export_to_csv( stock_code: str = None,
@@ -231,7 +241,10 @@ async def export_to_csv( stock_code: str = None,
 async def stock_colum_name_eng2cn(data_frame: pd.DataFrame) -> pd.DataFrame:
     return data_frame.rename(
         columns={"trade_date": "日期", "open_price": "开盘价", "close_price": "收盘价", "high_price": "最高价",
-                 "low_price": "最低价","volume": "成交量",}, inplace=False)
+                 "low_price": "最低价",
+                 "volume": "成交量", "turnover_amount": "成交额", "change_amount": "涨跌额",
+                 "change_rate": "涨跌幅", "turnover_rate": "换手率", "amplitude": "振幅"}, inplace=False)
+
 
 
 
