@@ -29,7 +29,7 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
         if stock is None:
             raise ValueError(f"股票代码{stock_code}不存在")
         else:
-            os.makedirs(f"./picture/{stock_code}", exist_ok=True)
+            os.makedirs(f"../picture/{stock_code}", exist_ok=True)
     except Exception as e:
         log.error("本系统中不存在该股票", e)
     # 获取合并的数据
@@ -59,7 +59,8 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
 
     # 保存数据
     merged_data.fillna(0, inplace=True)
-    merged_data.to_csv(f"./processed_data/{stock_code}.csv")
+    merged_data.replace([np.inf, -np.inf], 0, inplace=True)
+    merged_data.to_csv(f"../processed_data/feature_{stock_code}.csv")
 
 
 async def get_merged_data(end_date, start_date, stock_code):
@@ -224,7 +225,7 @@ def volume_abnormal_feature(stock_data: pd.DataFrame, stock_code: str):
     # 同样设置相同的 y 轴范围
     plt.ylim(0, 1e9)
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/volume_correction.svg')
+    plt.savefig(f'../picture/{stock_code}/volume_correction.svg')
     plt.show()  # 显示图像后再关闭图表
     plt.close()
 
@@ -320,7 +321,7 @@ def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_
     ax2.legend()
 
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/stock_window_features.svg', bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/stock_window_features.svg', bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -394,7 +395,7 @@ def macro_window_feature(merged_data: pd.DataFrame, stock_code: str = None)->pd.
     axes[2].legend()
 
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/macro_window_features.svg', bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/macro_window_features.svg', bbox_inches='tight')
     plt.show()
     plt.close()
     return merged_data
@@ -497,7 +498,7 @@ def normalize_data(merged_data: pd.DataFrame, stock_code: str):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}normalized_features_plot.svg')
+    plt.savefig(f'../picture/{stock_code}/normalized_features_plot.svg')
     plt.show()
     plt.close()
 
