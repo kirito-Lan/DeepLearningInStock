@@ -1,8 +1,6 @@
 declare namespace API {
   type BaseResponse = {}
 
-  type BaseResponseStr_ = {}
-
   type BatchExportDataRequest = {
     /** Export Type */
     export_type: string

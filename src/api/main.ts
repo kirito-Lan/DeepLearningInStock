@@ -4,7 +4,7 @@ import request from '@/request'
 
 /** Healthcheck GET /check */
 export async function healthCheckCheckGet(options?: { [key: string]: any }) {
-  return request<API.BaseResponseStr_>('/check', {
+  return request<API.BaseResponse>('/check', {
     method: 'GET',
     ...(options || {}),
   })
