@@ -1,5 +1,4 @@
 <template>
-
   <div id="GlobalHeader">
     <a-row :wrap="false">
       <a-col flex="300px">
@@ -18,40 +17,45 @@
           @click="doMenuClick"
         />
       </a-col>
-      </a-row>
+    </a-row>
   </div>
 </template>
 <script lang="ts" setup>
 import { h, ref } from 'vue'
-import { BarChartOutlined,StockOutlined,BgColorsOutlined ,GithubOutlined } from '@ant-design/icons-vue'
+import {
+  BarChartOutlined,
+  StockOutlined,
+  BgColorsOutlined,
+  GithubOutlined,
+} from '@ant-design/icons-vue'
 import { MenuProps } from 'ant-design-vue'
-import { useRouter } from "vue-router";
-const router = useRouter();
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
-const current = ref<string[]>([]);
+const current = ref<string[]>([])
 // 监听路由变化，更新当前选中菜单
 router.afterEach((to, from, next) => {
-  current.value = [to.path];
-});
+  current.value = [to.path]
+})
 
 // 路由跳转事件
 const doMenuClick = ({ key }: { key: string }) => {
   router.push({
     path: key,
-  });
-};
+  })
+}
 
 const items = ref<MenuProps['items']>([
   {
     key: '/',
     icon: () => h(BarChartOutlined),
-    label: '宏观数据看板',
+    label: '宏观数据',
     title: '宏观数据看板',
   },
   {
     key: '/exponent',
-    icon: () => h(StockOutlined ),
-    label: '指标数据看板',
+    icon: () => h(StockOutlined),
+    label: '指标数据',
     title: '指标数据看板',
   },
   {
@@ -63,9 +67,13 @@ const items = ref<MenuProps['items']>([
   {
     key: '/about',
     icon: () => h(GithubOutlined),
-    label: h('a', { href: 'https://github.com/kirito-Lan/DeepLearningInStock/tree/front-end' }, '关于'),
-    title: '关于'
-  }
+    label: h(
+      'a',
+      { href: 'https://github.com/kirito-Lan/DeepLearningInStock/tree/front-end' },
+      '关于',
+    ),
+    title: '关于',
+  },
 ])
 </script>
 
@@ -86,5 +94,3 @@ const items = ref<MenuProps['items']>([
   height: 48px;
 }
 </style>
-
-
