@@ -1,5 +1,7 @@
+import asyncio
 import os
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from config.LoguruConfig import log, project_root
@@ -8,10 +10,10 @@ from model.entity.StockData import StockData
 from routes import CommonRoute
 
 # 定时任务
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
 
-def clean_archive_file():
+async def clean_archive_file():
     """
     异步函数：清理生成的 csv 和 excel 文件。
     Description:
@@ -72,6 +74,7 @@ async def update_macro_data_schedule():
     except Exception as e:
         log.exception(f"更新宏观数据失败: {e}")
         pass
+
 
 # 每天凌晨 0 点执行一次清理任务
 scheduler.add_job(clean_archive_file, trigger='cron', hour=0)
