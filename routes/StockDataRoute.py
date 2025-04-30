@@ -75,3 +75,8 @@ async def crawl_stock_data(body: GetStockRequest):
 
     return BaseResponse[NoneType].success(f"爬取数据成功,共更新{crawl_result}条数据")
 
+@router.get("/getStockList", response_model=BaseResponse)
+async def get_stock_list():
+    """获取所有的股票类型"""
+    stock_list = [{"name": item.get_name(), "code": item.get_code()} for item in ExponentEnum]
+    return BaseResponse[Dict].success(stock_list)

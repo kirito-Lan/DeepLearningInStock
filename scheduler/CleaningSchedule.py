@@ -25,7 +25,7 @@ async def clean_archive_file():
         3. 使用 os.remove() 删除符合条件的文件。
 
     """
-    log.info("开始清理生成的 csv excel 文件")
+    log.info("开始定时清理生成的 csv excel 文件")
     csv_file_path = project_root / "resources" / "csvFiles"
     excel_file_path = project_root / "resources" / "excelFiles"
     for file in os.listdir(csv_file_path):
@@ -42,22 +42,22 @@ async def clean_db_bad_data():
     偶发的 indicator_id 插入后异常为1的数据
     :return: None
     """
-    log.info("开始清理 Stock和Macro_data 库中的异常数据")
+    log.info("开始定时清理 Stock和Macro_data 库中的异常数据")
     try:
         await StockData.objects.filter(indicator_id=1).delete()
         await MacroData.filter(indicator_id=1).delete()
     except Exception as e:
-        log.exception(f"清理 Stock和Macro_data 库中的异常数据失败: {e}")
+        log.exception(f"定时清理 Stock和Macro_data 库中的异常数据失败: {e}")
 
 
 async def update_stock_data_schedule():
     """
     异步函数：更新股票数据。
     """
-    log.info("开始更新股票数据")
+    log.info("定时更新股票数据")
     try:
         res = await CommonRoute.batch_update_data("stock")
-        log.info(f"自动更新股票数据成功: {res}")
+        log.info(f"定时更新股票数据成功: {res}")
     except Exception as e:
         log.exception(f"更新股票数据失败: {e}")
         pass
@@ -67,10 +67,10 @@ async def update_macro_data_schedule():
     """
     异步函数：更新宏观数据。
     """
-    log.info("开始更新宏观数据")
+    log.info("定时更新宏观数据")
     try:
         res = await CommonRoute.batch_update_data("macro")
-        log.info(f"自动更新宏观数据成功: {res}")
+        log.info(f"定时更新宏观数据成功: {res}")
     except Exception as e:
         log.exception(f"更新宏观数据失败: {e}")
         pass

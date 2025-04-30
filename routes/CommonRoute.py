@@ -17,7 +17,7 @@ router = APIRouter(prefix="/common", tags=["common"])
 @router.post("/batchExportToExcel", response_model=BaseResponse)
 async def batch_export_to_excel(body: BatchExportDataRequest):
     """
-    批量导出股票数据到excel
+    批量导出数据到excel
     :param body: 请求体
     :return: BaseResponse
     """
