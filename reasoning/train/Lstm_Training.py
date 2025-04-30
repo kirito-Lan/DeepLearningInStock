@@ -1,5 +1,8 @@
+import asyncio
+
 import pandas as pd
 import numpy as np
+from keras.src.saving import load_model
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -10,18 +13,28 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 
 from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
+from model.entity.BaseMeta.BaseMeta import database
+from reasoning.analyse.FeatureEngine import feature_engineering
+from utils.ReFormatDate import format_date
 
 
-def build_model(stock_code: str):
+async def build_model(stock_code: str,start_date: str, end_date: str):
     # 获取枚举值
     stock = ExponentEnum.get_enum_by_code(stock_code)
     if stock is None:
         raise Exception("股票代码不存在")
-
+    # 格式化时间
+    start_date, end_date = format_date(start_date=start_date, end_date=end_date)
     # 读取数据
     log.info(f"开始构建模型，读取股票代码：{stock_code} 数据")
-    data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
+    data = pd.DataFrame()
+    try:
+        data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
+    except FileNotFoundError:
+        data= await feature_engineering(stock_code,start_date,end_date)
     # 转换日期格式，并按照日期排序
+    if data is None or data.empty:
+        raise Exception("没有找到对应的股票数据")
     data = data.rename(columns={'trade_date': 'Date'})
     data['Date'] = pd.to_datetime(data['Date'])
     data = data.sort_values('Date')
@@ -94,6 +107,9 @@ def build_model(stock_code: str):
     log.info(f"Root Mean Squared Error (RMSE): {rmse}")
     log.info(f"Mean Absolute Error (MAE): {mae}")
     log.info(f"R² Score: {r2}")
+    # 保存模型
+    log.info('保存模型...')
+    model.save(f'../model/{stock.get_name()}_model.h5')
 
     plt.figure(figsize=(8, 4))
 
@@ -109,7 +125,7 @@ def build_model(stock_code: str):
     plt.ylabel('Stock Price')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('../picture/stock_prices.svg')
+    plt.savefig(f'../picture/{stock_code}/stock_prices.svg')
     plt.show()
     plt.close()
     # 绘制训练损失和验证损失的变化
@@ -122,7 +138,7 @@ def build_model(stock_code: str):
     plt.legend()
     plt.tight_layout()
 
-    plt.savefig('../picture/loss.svg')
+    plt.savefig(f'../picture/{stock_code}/loss.svg')
     plt.show()
     plt.close()
 
@@ -130,5 +146,29 @@ def build_model(stock_code: str):
     predicted_df = pd.DataFrame(predicted_prices, columns=["Predicted Close"])
     predicted_df.to_csv(f'../results/predicted_stock_prices_{stock.get_code()}.csv', index=False)
 
+
+def predict(stock_code: str):
+    # 获取枚举值
+    stock = ExponentEnum.get_enum_by_code(stock_code)
+    if stock is None:
+        raise Exception("股票代码不存在")
+    # 从文件中读取模型
+    log.info(f"开始预测，读取股票代码：{stock_code} 数据")
+    model=None
+    try:
+        model = load_model(f'../model/{stock.get_name()}_model.h5')
+    except ValueError as e:
+        log.exception(f"无法加载模型: {e}")
+        return
+    if model is None:
+        log.info("没有找到模型,请先运行构造模型")
+    else:
+        pass
+
+
+async def main():
+    await database.connect()
+    await build_model('000001', None, None)
+    await database.disconnect()
 if __name__ == '__main__':
-    build_model('399001')
+    asyncio.run(main())
