@@ -52,3 +52,11 @@ export async function getStockDataStockGetStockDataPost(
     ...(options || {}),
   })
 }
+
+/** Get Stock List 获取所有的股票类型 GET /stock/getStockList */
+export async function getStockListStockGetStockListGet(options?: { [key: string]: any }) {
+  return request<API.BaseResponse>('/stock/getStockList', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}

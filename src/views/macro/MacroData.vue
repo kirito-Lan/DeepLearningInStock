@@ -11,7 +11,7 @@
             >
               <a-select-option value="CPI">CPI</a-select-option>
               <a-select-option value="PPI">PPI</a-select-option>
-              <a-select-option value="GDP">GDP</a-select-option>
+              <a-select-option value="PMI">PMI</a-select-option>
             </a-select>
           </a-col>
           <a-col :span="8">

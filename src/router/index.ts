@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MacroData from '@/views/macro/MacroData.vue'
+import StockDataVue from '../views/stock/StockData.vue'
 import TheWelcome from '@/components/TheWelcome.vue'
 
 const router = createRouter({
@@ -13,7 +14,12 @@ const router = createRouter({
     {
       path: '/exponent',
       name: 'exponent',
-      component: TheWelcome,
+      component: StockDataVue,
+    },
+    {
+      path: '/predict',
+      name: 'predict',
+      component: TheWelcome
     },
   ],
 })

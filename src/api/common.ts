@@ -2,7 +2,7 @@
 /* eslint-disable */
 import request from '@/request'
 
-/** Batch Export To Excel 批量导出股票数据到excel
+/** Batch Export To Excel 批量导出数据到excel
 :param body: 请求体
 :return: BaseResponse POST /common/batchExportToExcel */
 export async function batchExportToExcelCommonBatchExportToExcelPost(
