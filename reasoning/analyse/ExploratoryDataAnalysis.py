@@ -126,8 +126,8 @@ async def stock_trend_seasonal(stock_code, stock_data):
     plt.title('Residuals')
 
     plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}/trend_seasonality_decomposition.svg', bbox_inches='tight')
     plt.show()
-    plt.savefig(f'./picture/{stock_code}/trend_seasonality_decomposition.svg')
     plt.close()
 
 
@@ -179,9 +179,9 @@ async def stock_volatility(stock_code, stock_data):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.show()
     # 保存图像
-    plt.savefig(f'./picture/{stock_code}/volatility_analysis.svg')
+    plt.savefig(f'./picture/{stock_code}/volatility_analysis.svg',bbox_inches='tight')
+    plt.show()
     plt.close()
 
 
@@ -203,7 +203,7 @@ async def abnormal_value_detection(stock_code, stock_data):
 
     # 保存箱线图
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/boxplot_outliers.svg')
+    plt.savefig(f'./picture/{stock_code}/boxplot_outliers.svg',bbox_inches='tight')
     plt.show()
     plt.close()
     # 2. 使用 Z 分数法检测异常值
@@ -253,8 +253,8 @@ async def abnormal_value_detection(stock_code, stock_data):
     plt.legend()
     # 保存检测到的异常值图
     plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}/abnormal_detection.svg',bbox_inches='tight')
     plt.show()
-    plt.savefig(f'./picture/{stock_code}/abnormal_detection.svg')
     plt.close()
 
 
@@ -326,13 +326,13 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.ylabel('Value')
     plt.legend()
     plt.tight_layout()
-    plt.show()
-    plt.savefig(f'./picture/{stock_code}/macro_correlation.svg')
     # 设置 X 轴时间格式
     for ax in plt.gcf().axes:
         ax.xaxis.set_major_locator(mdates.YearLocator(5))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         ax.set_xlabel('Date')
+    plt.savefig(f'./picture/{stock_code}/macro_correlation.svg', bbox_inches='tight')
+    plt.show()
     plt.close()
     # endregion
 
@@ -389,8 +389,9 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.xlabel('Actual Values')
     plt.ylabel('Predicted Values')
     plt.tight_layout()
+
+    plt.savefig(f'./picture/{stock_code}/regression_actual_vs_pred.svg',bbox_inches='tight')
     plt.show()
-    plt.savefig(f'./picture/{stock_code}/regression_actual_vs_pred.svg')
     plt.close()
 
     # 绘制三个宏观指标和股票收盘价的散点图
@@ -411,8 +412,8 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.xlabel('PMI YOY(%)')
     plt.ylabel(f'{stock_code} Closing Prices')
     plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}/feature_and_close.svg',bbox_inches='tight')
     plt.show()
-    plt.savefig(f'./picture/{stock_code}/feature_and_close.svg')
     plt.close()
     # endregion
 
@@ -429,8 +430,8 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     plt.ylabel('Close Price', fontsize=12)  # y轴标签
     plt.grid(True)  # 显示网格线
     plt.tight_layout()
+    plt.savefig(f'./picture/{stock_code}/volume_and_close.svg',bbox_inches='tight')
     plt.show()
-    plt.savefig(f'./picture/{stock_code}/volume_and_close.svg')
     plt.close()
     # 计算交易量和收盘价之间的相关性
     volume = stock_data['volume'].astype(int)

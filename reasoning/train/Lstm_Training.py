@@ -2,6 +2,7 @@ import asyncio
 
 import pandas as pd
 import numpy as np
+from keras import Input
 from keras.src.saving import load_model
 
 from sklearn.model_selection import train_test_split
@@ -13,6 +14,7 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 
 from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
+from manager.decoration.dbconnect import db_connection
 from model.entity.BaseMeta.BaseMeta import database
 from reasoning.analyse.FeatureEngine import feature_engineering
 from utils.ReFormatDate import format_date
@@ -31,7 +33,9 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     try:
         data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
     except FileNotFoundError:
-        data= await feature_engineering(stock_code,start_date,end_date)
+        await feature_engineering(stock_code,start_date,end_date)
+        #特征工程结束后再次读取
+        data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
     # 转换日期格式，并按照日期排序
     if data is None or data.empty:
         raise Exception("没有找到对应的股票数据")
@@ -74,14 +78,19 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     # 构建LSTM模型
     log.info('构建LSTM模型...')
     model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+    # 添加 Input 层，明确指定输入维度 (time_steps, features)
+    model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
+    # 第一层 LSTM：设置 50 个神经元，并返回整个序列
+    model.add(LSTM(units=50, return_sequences=True))
     model.add(Dropout(0.2))
+    # 第二层 LSTM：设置 50 个神经元，仅返回最后一个时间步的结果
     model.add(LSTM(units=50, return_sequences=False))
     model.add(Dropout(0.2))
+    # 输出层，全连接层，1 个神经元用于回归输出
     model.add(Dense(units=1))
-
-    # 编译模型
+    # 编译模型：使用 Adam 优化器，损失函数为均方误差，并监控 MAE 指标
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
+    # 输出模型摘要信息
     model.summary()
 
     log.info('训练LSTM模型...')
@@ -109,7 +118,7 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     log.info(f"R² Score: {r2}")
     # 保存模型
     log.info('保存模型...')
-    model.save(f'../model/{stock.get_name()}_model.h5')
+    model.save(f'../model/{stock.get_name()}_model..keras')
 
     plt.figure(figsize=(8, 4))
 
@@ -165,10 +174,10 @@ def predict(stock_code: str):
     else:
         pass
 
-
+@db_connection
 async def main():
-    await database.connect()
-    await build_model('000001', None, None)
-    await database.disconnect()
+    await build_model('000300', None, None)
+
+
 if __name__ == '__main__':
     asyncio.run(main())
