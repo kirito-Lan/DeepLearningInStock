@@ -15,7 +15,6 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
 from manager.decoration.dbconnect import db_connection
-from model.entity.BaseMeta.BaseMeta import database
 from reasoning.analyse.FeatureEngine import feature_engineering
 from utils.ReFormatDate import format_date
 
@@ -31,12 +30,13 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     log.info(f"开始构建模型，读取股票代码：{stock_code} 数据")
     data = pd.DataFrame()
     try:
-        data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
+        data = pd.read_csv(f'../processed_data/{stock_code}/feature_{stock.get_code()}-{start_date}-{end_date}.csv')
     except FileNotFoundError:
+        log.info(f"读取数据为空开始特征工程")
         await feature_engineering(stock_code,start_date,end_date)
         #特征工程结束后再次读取
         data = pd.read_csv(f'../processed_data/feature_{stock.get_code()}.csv')
-    # 转换日期格式，并按照日期排序
+
     if data is None or data.empty:
         raise Exception("没有找到对应的股票数据")
     data = data.rename(columns={'trade_date': 'Date'})
@@ -118,7 +118,7 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     log.info(f"R² Score: {r2}")
     # 保存模型
     log.info('保存模型...')
-    model.save(f'../model/{stock.get_name()}_model..keras')
+    model.save(f'../model/{stock.get_name()}_model.keras')
 
     plt.figure(figsize=(8, 4))
 
@@ -156,7 +156,7 @@ async def build_model(stock_code: str,start_date: str, end_date: str):
     predicted_df.to_csv(f'../results/predicted_stock_prices_{stock.get_code()}.csv', index=False)
 
 
-def predict(stock_code: str):
+def predict_val(stock_code: str):
     # 获取枚举值
     stock = ExponentEnum.get_enum_by_code(stock_code)
     if stock is None:
@@ -176,7 +176,7 @@ def predict(stock_code: str):
 
 @db_connection
 async def main():
-    await build_model('000300', None, None)
+    await build_model(ExponentEnum.SZCZ.get_code(), None, None)
 
 
 if __name__ == '__main__':

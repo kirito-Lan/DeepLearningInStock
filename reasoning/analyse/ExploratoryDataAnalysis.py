@@ -12,6 +12,7 @@ from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
 from constant.MaroDataEnum import MacroDataEnum
 from manager import StockDataManage, MacroDataManage
+from manager.decoration.dbconnect import db_connection
 from model.entity.BaseMeta.BaseMeta import database
 from utils.ReFormatDate import format_date
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ async def analyse_stock_data(stock_code, start_date, end_date):
     
     # 获取到股票的数据
     start_date, end_date = format_date(start_date=start_date, end_date=end_date)
-    stock_data = await StockDataManage.get_stock_data(stock_code=stock_code, start_date=start_date, end_date=end_date)
+    stock_data = await StockDataManage.get_stock_data_local(stock_code=stock_code, start_date=start_date, end_date=end_date)
     # 转换时间格式
     stock_data['trade_date'] = pd.to_datetime(stock_data['trade_date'], errors='coerce', format="%Y-%m-%d")
     # 将date列设置为索引
@@ -268,9 +269,9 @@ async def stock_macro_correlation(stock_code, stock_data):
     end = stock_data.index[-1]
     log.info(f"Start: {start}, End: {end}")
     # 获取宏观数据
-    cpi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.CPI, start_date=str(start), end_date=str(end))
-    ppi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.PPI, start_date=str(start), end_date=str(end))
-    pmi_data = await MacroDataManage.get_macro_data(types=MacroDataEnum.PMI, start_date=str(start), end_date=str(end))
+    cpi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.CPI, start_date=str(start), end_date=str(end))
+    ppi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PPI, start_date=str(start), end_date=str(end))
+    pmi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PMI, start_date=str(start), end_date=str(end))
     # 格式化时间report_date并设置为设置索引
     cpi_data.set_index("report_date", inplace=True)
     ppi_data.set_index("report_date", inplace=True)
@@ -335,15 +336,6 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.show()
     plt.close()
     # endregion
-
-    # NOTE 计算PMI 滚动窗口平均值与标准差(趋势和波动) (长期趋势与周期性分解) (PMI 与股票收益率的交互特征)
-    # print(macro_data)
-    # print("#" * 30)
-    # print(cpi_data)
-    # print("#" * 30)
-    # print(ppi_data)
-    # print("#" * 30)
-    # print(pmi_data)
 
     # region
     # NOTE 提取三个宏观变量和股票收盘价的特征变量
@@ -448,11 +440,9 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     else:
         log.info("交易量和收盘价之间没有统计学上的显著相关性.")
 
-
+@db_connection
 async def main():
-    await database.connect()
-    await analyse_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date=None, end_date=None)
-    await database.disconnect()
+    await analyse_stock_data(stock_code=ExponentEnum.HS300.get_code(), start_date=None, end_date=None)
 
 
 if __name__ == '__main__':

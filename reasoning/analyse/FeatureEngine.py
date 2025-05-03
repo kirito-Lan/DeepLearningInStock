@@ -29,6 +29,7 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
             raise ValueError(f"股票代码{stock_code}不存在")
         else:
             os.makedirs(f"../picture/{stock_code}", exist_ok=True)
+            os.makedirs(f"../processed_data/{stock_code}", exist_ok=True)
     except Exception as e:
         log.error("本系统中不存在该股票", e)
     # 获取合并的数据
@@ -59,7 +60,7 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
     # 保存数据
     merged_data.fillna(0, inplace=True)
     merged_data.replace([np.inf, -np.inf], 0, inplace=True)
-    merged_data.to_csv(f"../processed_data/feature_{stock_code}.csv")
+    merged_data.to_csv(f"../processed_data/{stock_code}/feature_{stock_code}-{start_date}-{end_date}.csv")
 
 
 async def get_merged_data(end_date, start_date, stock_code):
@@ -248,7 +249,7 @@ def reward_rate_feature(stock_data: pd.DataFrame):
     stock_data.drop(['Close_Float'], axis=1, inplace=True)
 
 
-def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_window: int = 100,
+def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_window: int = 90,
                          stock_code: str = None):
     """
     对股票进行窗口划分同时提取各个窗口下的均值和波动性，同期起到对数据的平滑作用原地修改传入的 DataFrame
@@ -258,7 +259,7 @@ def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_
          当窗口内数据不足 window_size 个时返回 NaN。
       2. 非重叠窗口计算：将数据分成不重叠的组，每组包含 window_size 个数据点，
          利用 group by 计算各组的均值和标准差，并将结果映射到 DataFrame 对应行上。
-      3. 长期滚动窗口计算：使用较长的 滚动窗口（如 long_window，默认200）计算长期均值和标准差，
+      3. 长期滚动窗口计算：使用较长的 滚动窗口（如 long_window,100）计算长期均值和标准差，
          用以捕捉数据的长期趋势。
     新增列：
       - 'Mean'：滚动窗口内 Close 列的均值
@@ -280,7 +281,7 @@ def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_
     merged_data['Volatility_non_overlap'] = merged_data.groupby('group')['Close'].transform('std')
     merged_data.drop(columns='group', inplace=True)
 
-    # 3. 长期滚动窗口计算：利用较长的窗口（long_window，默认200）计算
+    # 3. 长期滚动窗口计算：利用较长的窗口（long_window default 90）计算
     merged_data['Long_Mean'] = merged_data['Close'].rolling(window=long_window, min_periods=long_window).mean()
     merged_data['Long_Volatility'] = merged_data['Close'].rolling(window=long_window, min_periods=long_window).std()
 
@@ -298,7 +299,7 @@ def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_
     ax1.plot(merged_data.index, merged_data['EMA'], label='Short-term EMA (20)', linestyle='-.', color='orange')
     ax1.plot(merged_data.index, merged_data['Mean_non_overlap'], label='Non-overlap Mean (20)', linestyle='-.',
              color='green')
-    ax1.plot(merged_data.index, merged_data['Long_Mean'], label='Long-term Mean (200)', linestyle=':', color='red')
+    ax1.plot(merged_data.index, merged_data['Long_Mean'], label='Long-term Mean (90)', linestyle=':', color='red')
 
     ax1.set_title('Price and Moving Averages')
     ax1.set_xlabel('Time')
@@ -311,7 +312,7 @@ def stock_window_feature(merged_data: pd.DataFrame, window_size: int = 20, long_
              color='blue')
     ax2.plot(merged_data.index, merged_data['Volatility_non_overlap'], label='Non-overlap Volatility (20)',
              linestyle='-.', color='green')
-    ax2.plot(merged_data.index, merged_data['Long_Volatility'], label='Long-term Volatility (200)', linestyle=':',
+    ax2.plot(merged_data.index, merged_data['Long_Volatility'], label='Long-term Volatility (90)', linestyle=':',
              color='red')
 
     ax2.set_title('Volatility Features')
