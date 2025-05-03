@@ -1,17 +1,18 @@
 import asyncio
 import os
-import glob
 import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
+from keras.src.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, Dropout, Dense
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.regularizers import L2
 
 from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
@@ -20,7 +21,7 @@ import seaborn as sns
 from reasoning.analyse.FeatureEngine import feature_engineering
 from utils.ReFormatDate import format_date
 
-# 固定随机种子
+# 固定随机种子保证训练结果可以复现
 seed = 42
 tf.random.set_seed(seed)
 np.random.seed(seed)
@@ -68,7 +69,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
     y_scaled = scaler_y.fit_transform(y)
 
     # 模型训练配置
-    window_lengths = [30, 60, 90]
+    window_lengths = [20, 60, 90]
     best_metrics = {
         'window': None,
         'model': None,
@@ -91,20 +92,22 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
 
         X_seq, y_seq = create_sequences(X_scaled, y_scaled, time_steps)
 
-        # 数据集划分（保持时序）
+        # 数据集划分（同时保持时序）
         X_train, X_rem, y_train, y_rem = train_test_split(X_seq, y_seq, test_size=0.3, shuffle=False)
         X_val, X_test, y_val, y_test = train_test_split(X_rem, y_rem, test_size=0.5, shuffle=False)
-
+        log.debug(f"训练集shape：{X_train.shape}, 验证集shape：{X_val.shape}, 测试集shape：{X_test.shape}")
         # 模型架构
-        model = Sequential([
-            Input(shape=(X_train.shape[1], X_train.shape[2])),
-            LSTM(64, return_sequences=True),
-            Dropout(0.3),
-            LSTM(32),
-            Dropout(0.3),
-            Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
+        model = Sequential()
+        model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
+        model.add(LSTM(50, return_sequences=True, kernel_regularizer=L2(0.001)))
+        model.add(Dropout(0.3))
+        model.add(LSTM(50, return_sequences=False))
+        model.add(Dropout(0.3))
+        # 输出层
+        model.add(Dense(1))
+
+        # 添加L2正则化减少过拟合
+        model.compile(optimizer=Adam(learning_rate=0.0001), loss='mean_squared_error', metrics=['mae'])
         # 输出模型摘要信息
         model.summary()
         # 回调设置
@@ -122,7 +125,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
             epochs=100,
             batch_size=32,
             callbacks=callbacks,
-            verbose=2
+            verbose=1
         )
 
         # 记录最佳模型
