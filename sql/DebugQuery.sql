@@ -19,7 +19,7 @@ where indicator_id = 1910991963423903744
 
 select count(1) num,max(trade_date) latestday,min(trade_date) oldest_date
 from stock_data
-where indicator_id=1912437306833375232;
+where indicator_id=(select id from indicator where code='000688');
 
 select count(1) from stock_data where indicator_id=1912437306833375232;
 

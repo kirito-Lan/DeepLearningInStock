@@ -29,7 +29,7 @@ async def analyse_stock_data(stock_code, start_date, end_date):
         if stock is None:
             raise ValueError(f"股票代码{stock_code}不存在")
         else:
-            os.makedirs(f"./picture/{stock_code}", exist_ok=True)
+            os.makedirs(f"../picture/{stock_code}", exist_ok=True)
     except Exception as e:
         log.error("本系统中不存在该股票", e)
     
@@ -70,6 +70,7 @@ async def stock_basic_info(stock_code, stock_data):
     plt.plot(stock_data.index, stock_data['volume'], '-', label='close_price Price')
     plt.xticks(rotation=45)
     plt.tight_layout()
+    plt.savefig(f'../picture/{stock_code}/volume_date.svg', bbox_inches='tight')
     plt.show()
     plt.close()
     # 股票的时间和收盘价
@@ -81,7 +82,7 @@ async def stock_basic_info(stock_code, stock_data):
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.close()  # 清除当前图像
+    plt.close()
     # 股票的收盘价的概率密度分布图
     plt.figure(figsize=(8, 5))
     sns.kdeplot(stock_data['close_price'], fill=True, color='b')
@@ -89,6 +90,7 @@ async def stock_basic_info(stock_code, stock_data):
     plt.xlabel('Price')
     plt.ylabel('Probability Density')
     plt.tight_layout()
+    plt.savefig(f'../picture/{stock_code}/close_price_distribution.svg', bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -127,7 +129,7 @@ async def stock_trend_seasonal(stock_code, stock_data):
     plt.title('Residuals')
 
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/trend_seasonality_decomposition.svg', bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/trend_seasonality_decomposition.svg', bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -181,7 +183,7 @@ async def stock_volatility(stock_code, stock_data):
     plt.legend()
     plt.tight_layout()
     # 保存图像
-    plt.savefig(f'./picture/{stock_code}/volatility_analysis.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/volatility_analysis.svg',bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -204,7 +206,7 @@ async def abnormal_value_detection(stock_code, stock_data):
 
     # 保存箱线图
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/boxplot_outliers.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/boxplot_outliers.svg',bbox_inches='tight')
     plt.show()
     plt.close()
     # 2. 使用 Z 分数法检测异常值
@@ -254,7 +256,7 @@ async def abnormal_value_detection(stock_code, stock_data):
     plt.legend()
     # 保存检测到的异常值图
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/abnormal_detection.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/abnormal_detection.svg',bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -332,7 +334,7 @@ async def stock_macro_correlation(stock_code, stock_data):
         ax.xaxis.set_major_locator(mdates.YearLocator(5))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         ax.set_xlabel('Date')
-    plt.savefig(f'./picture/{stock_code}/macro_correlation.svg', bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/macro_correlation.svg', bbox_inches='tight')
     plt.show()
     plt.close()
     # endregion
@@ -382,7 +384,7 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.ylabel('Predicted Values')
     plt.tight_layout()
 
-    plt.savefig(f'./picture/{stock_code}/regression_actual_vs_pred.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/regression_actual_vs_pred.svg',bbox_inches='tight')
     plt.show()
     plt.close()
 
@@ -404,7 +406,7 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.xlabel('PMI YOY(%)')
     plt.ylabel(f'{stock_code} Closing Prices')
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/feature_and_close.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/feature_and_close.svg',bbox_inches='tight')
     plt.show()
     plt.close()
     # endregion
@@ -422,7 +424,7 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     plt.ylabel('Close Price', fontsize=12)  # y轴标签
     plt.grid(True)  # 显示网格线
     plt.tight_layout()
-    plt.savefig(f'./picture/{stock_code}/volume_and_close.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/volume_and_close.svg',bbox_inches='tight')
     plt.show()
     plt.close()
     # 计算交易量和收盘价之间的相关性

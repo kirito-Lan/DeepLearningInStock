@@ -29,8 +29,6 @@ random.seed(seed)
 
 
 async def build_model(stock_code: str, start_date: str, end_date: str):
-    # 开启intel 加速
-    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
     """构建并训练LSTM股票预测模型"""
     # 获取枚举值
     stock = ExponentEnum.get_enum_by_code(stock_code)
@@ -99,9 +97,9 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         # 模型架构
         model = Sequential()
         model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
-        model.add(LSTM(50, return_sequences=True, kernel_regularizer=L2(0.001)))
+        model.add(LSTM(64, return_sequences=True, kernel_regularizer=L2(0.001)))
         model.add(Dropout(0.3))
-        model.add(LSTM(50, return_sequences=False))
+        model.add(LSTM(32, return_sequences=False))
         model.add(Dropout(0.3))
         # 输出层
         model.add(Dense(1))
@@ -151,7 +149,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
             log.debug(f"已删除临时文件: {file}")
 
     # 最终模型保存
-    final_model_path = f'../model/{stock.get_code()}_model.keras'
+    final_model_path = f'../model/{stock.get_name()}_model.keras'
     best_metrics['model'].save(final_model_path)
     log.info(f"模型已保存至: {final_model_path}")
 
@@ -247,7 +245,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
 
 @db_connection
 async def main():
-    await build_model(stock_code=ExponentEnum.SZCZ.get_code(),start_date=None,end_date=None)
+    await build_model(stock_code=ExponentEnum.ZZ1000.get_code(),start_date=None,end_date=None)
 
 
 if __name__ == "__main__":

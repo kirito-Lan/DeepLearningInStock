@@ -176,7 +176,7 @@ def predict_val(stock_code: str):
 
 @db_connection
 async def main():
-    await build_model(ExponentEnum.SZCZ.get_code(), None, None)
+    await build_model(ExponentEnum.KC50.get_code(), None, None)
 
 
 if __name__ == '__main__':
