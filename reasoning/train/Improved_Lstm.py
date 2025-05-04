@@ -245,7 +245,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
 
 @db_connection
 async def main():
-    await build_model(stock_code=ExponentEnum.ZZ1000.get_code(),start_date=None,end_date=None)
+    await build_model(stock_code=ExponentEnum.ZZ500.get_code(),start_date=None,end_date=None)
 
 
 if __name__ == "__main__":

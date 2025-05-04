@@ -18,6 +18,8 @@ class ErrorCode(Enum):
     SYSTEM_ERROR = (50000, "系统内部异常")
     # 操作失败
     OPERATION_ERROR = (50001, "操作失败")
+    # 请求数据不存在
+    FILE_NOT_FOUND_ERROR = (40400, "文件不存在")
 
     def __init__(self, code: int, message: str):
         self.__code = code

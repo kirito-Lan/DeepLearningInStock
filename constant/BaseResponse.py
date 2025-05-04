@@ -28,8 +28,10 @@ class BaseResponse(BaseModel, Generic[T]):
         return cls(code=code, msg=msg, data=data)
 
     @classmethod
-    def fail(cls: Type['BaseResponse'], errcode: ErrorCode) -> 'BaseResponse':
-        return cls(code=errcode.code, msg=errcode.message, data=None)
+    def fail(cls: Type['BaseResponse'], errcode: ErrorCode=None,msg:str=None) -> 'BaseResponse':
+        if not msg:
+            return cls(code=errcode.code, msg=errcode.message, data=None)
+        return cls(code=500, msg=msg, data=None)
 
     def get_code(self) -> int:
         return self.__code

@@ -1,8 +1,15 @@
+import base64
+from datetime import datetime
+from pathlib import Path
 from typing import Dict
 
 from fastapi import APIRouter
 
+from config.LoguruConfig import project_root
 from constant.BaseResponse import BaseResponse
+from constant.ErrorCode import ErrorCode
+from constant.ExponentEnum import ExponentEnum
+from model.dto.GetPredictRequest import GetPredictRequest
 
 router = APIRouter(prefix="/predict", tags=["predict"])
 
@@ -67,4 +74,48 @@ async def data_description():
         }
     }
     return BaseResponse[Dict].success(financial_metrics)
+
+
+
+
+@router.post("/get_trained_history", response_model=BaseResponse)
+async def get_trained_history(request:GetPredictRequest):
+    """获取到最近一次的训练数据内含，预测结果。模型的指标参数。最近一次预测的时间
+        Args:
+            request: 请求体
+            evaluation_metrics.png 模型评价指标
+            prediction_result.png 预测结果
+            training_history.png 训练历史
+        Returns:
+            dict: 返回最近一次的训练数据
+    """
+    stock = ExponentEnum.get_enum_by_code(request.stock_code)
+    if not stock:
+        return BaseResponse[str].fail(msg="请输入正确的股票代码")
+    # 查找保存的图片
+    pictures = ["evaluation_metrics.png", "prediction_result.png", "training_history.png"]
+    fload= project_root / "reasoning" / "picture" / request.stock_code
+    pic_path = [fload / picture for picture in pictures]
+    images = {}
+    for picture in pic_path:
+        # 判断文件存不存在
+        try:
+            if not picture.exists():
+                return BaseResponse[str].fail(msg="最近没有进行过预测请先进行预测")
+
+        except ValueError:
+            return BaseResponse[str].fail(msg="最近没有进行过预测请先进行预测")
+
+    for picture in pic_path:
+        # 读取图片并编码为Base64
+        with open(picture, "rb") as image_file:
+            encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
+            # 获取并格式化修改时间
+            modification_time = picture.stat().st_mtime
+            formatted_date = datetime.fromtimestamp(modification_time).strftime("%Y-%m-%d")
+            images[picture.name] = {
+                "data": encoded_image,
+                "modified_time": formatted_date
+            }
+    return BaseResponse[Dict].success(images)
 
