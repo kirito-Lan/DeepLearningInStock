@@ -7,7 +7,6 @@ from fastapi import APIRouter
 
 from config.LoguruConfig import project_root
 from constant.BaseResponse import BaseResponse
-from constant.ErrorCode import ErrorCode
 from constant.ExponentEnum import ExponentEnum
 from model.dto.GetPredictRequest import GetPredictRequest
 
@@ -118,4 +117,35 @@ async def get_trained_history(request:GetPredictRequest):
                 "modified_time": formatted_date
             }
     return BaseResponse[Dict].success(images)
+
+
+# 训练模型
+@router.post("/train_model", response_model=BaseResponse)
+async def train_model(request:GetPredictRequest):
+    """训练模型
+        Args:
+            request: 请求体
+        Returns:
+            dict: 返回训练结果
+    """
+    stock = ExponentEnum.get_enum_by_code(request.stock_code)
+    if not stock:
+        return BaseResponse[str].fail(msg="请输入正确的股票代码")
+    pass
+
+
+
+# EDA部分数据的获取接口
+@router.post("/eda", response_model=BaseResponse)
+async def eda(request:GetPredictRequest):
+    """EDA部分数据的获取接口
+        Args:
+            request: 请求体
+        Returns:
+            dict: 返回EDA结果
+    """
+    stock = ExponentEnum.get_enum_by_code(request.stock_code)
+    if not stock:
+        return BaseResponse[str].fail(msg="请输入正确的股票代码")
+    pass
 
