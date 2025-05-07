@@ -27,3 +27,9 @@ select count(1) from stock_data where indicator_id=1912437306833375232;
 delete from stock_data where indicator_id=1;
 
 truncate table stock_data;
+
+# 删除科创50股票 000688
+# 删除中证1000 000852
+delete from stock_data where indicator_id=(select id from indicator where code='000852');
+
+delete from indicator where code='000852';

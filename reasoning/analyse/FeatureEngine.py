@@ -420,6 +420,9 @@ def lag_cross_feature(merged_data: pd.DataFrame):
 
     # 处理数据延迟：对宏观数据采用 22 天滞后
     for col in macro_cols:
+        # PMI作为先行指标，往后移
+        if col == 'PMI':
+            merged_data[f"lag_{col}"] = merged_data[col].shift(-22)
         merged_data[f"lag_{col}"] = merged_data[col].shift(22)
 
     # 计算股票价格滞后特征：滞后 5,10,22 天的收盘价

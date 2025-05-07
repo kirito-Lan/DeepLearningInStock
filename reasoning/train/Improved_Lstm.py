@@ -56,7 +56,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
 
     # 数据预处理
     target = 'Close'
-    features = data.drop(columns=[target, 'Date'])
+    features = data.drop(columns=[target, 'Date', 'Open', 'High', 'Low'])
     X = features.values
     y = data[target].values.reshape(-1, 1)
 
@@ -120,7 +120,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         history = model.fit(
             X_train, y_train,
             validation_data=(X_val, y_val),
-            epochs=100,
+            epochs=150,
             batch_size=32,
             callbacks=callbacks,
             verbose=1
@@ -245,7 +245,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
 
 @db_connection
 async def main():
-    await build_model(stock_code=ExponentEnum.ZZ500.get_code(),start_date=None,end_date=None)
+    await build_model(stock_code=ExponentEnum.HS300.get_code(),start_date=None,end_date=None)
 
 
 if __name__ == "__main__":

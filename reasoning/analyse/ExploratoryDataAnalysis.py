@@ -14,6 +14,7 @@ from constant.MaroDataEnum import MacroDataEnum
 from manager import StockDataManage, MacroDataManage
 from manager.decoration.dbconnect import db_connection
 from model.entity.BaseMeta.BaseMeta import database
+from reasoning.analyse import FeatureEngine
 from utils.ReFormatDate import format_date
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -52,6 +53,8 @@ async def analyse_stock_data(stock_code, start_date, end_date):
     await stock_macro_correlation(stock_code=stock_code, stock_data=stock_data)
     #研究交易量和收盘价的相关性
     await stock_volume_price_correlation(stock_code=stock_code, stock_data=stock_data)
+    # 股票与宏观数据的相关性
+    await stock_indicators_correlation(stock_code=stock_code, stock_data=stock_data)
 
 
 async def stock_basic_info(stock_code, stock_data):
@@ -266,36 +269,8 @@ async def stock_macro_correlation(stock_code, stock_data):
     宏观因素对股票的影响分析
     """
     # region
-    # 设置数据起始时间  df中时间数据都是升序排列
-    start = stock_data.index[0]
-    end = stock_data.index[-1]
-    log.info(f"Start: {start}, End: {end}")
-    # 获取宏观数据
-    cpi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.CPI, start_date=str(start), end_date=str(end))
-    ppi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PPI, start_date=str(start), end_date=str(end))
-    pmi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PMI, start_date=str(start), end_date=str(end))
-    # 格式化时间report_date并设置为设置索引
-    cpi_data.set_index("report_date", inplace=True)
-    ppi_data.set_index("report_date", inplace=True)
-    pmi_data.set_index("report_date", inplace=True)
-    # endregion
-    #NOTE 数据库获取出的cpi(MOM) 和ppi(YOY)数据不用重新计算 pmi的则是原始数据
-    cpi_data.columns = ["CPI_Inflation_Rate"]
-    ppi_data.columns = ["PPI_Inflation_Rate"]
-    pmi_data.columns = ["PMI"]
-    # FIXME cpi ppi和股票的交互特征
-    #合并两个数据（并集） 线性插值填数据
-    macro_data = (pd.merge(left=cpi_data, right=ppi_data, left_index=True, right_index=True, how='outer')
-                  .interpolate(method='linear'))
-    #计算PMI(MOM)
-    pmi_data["PMI_YOY"]=pmi_data["PMI"].pct_change().ffill()
 
-    # 合并三个数据（并集） 线性插值填数据
-    macro_data = (pd.merge(left=macro_data, right=pmi_data, left_index=True, right_index=True, how='outer')
-                   .interpolate(method='linear'))
-    macro_data.sort_index(inplace=True)
-    # 将股票的收盘价数据和宏观数据合并
-    stock_macro_data = stock_data[["close_price"]].join(macro_data, how='inner')
+    stock_macro_data = await _get_macro_stock_data(stock_data)
 
     # region
     # 画图 设置x轴时间跨度为5年
@@ -411,6 +386,90 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.close()
     # endregion
 
+# 获取宏观数据和股票数据，数据集数量有限。以宏观数据为基准。只包含宏观数据和收盘价
+async def _get_macro_stock_data(stock_data)->pd.DataFrame:
+    """获取宏观数据和股票数据，数据集数量有限。以宏观数据为基准。只包含宏观数据和收盘价"""
+    # 设置数据起始时间  df中时间数据都是升序排列
+    start = stock_data.index[0]
+    end = stock_data.index[-1]
+    log.info(f"Start: {start}, End: {end}")
+    # 获取宏观数据
+    cpi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.CPI, start_date=str(start),
+                                                          end_date=str(end))
+    ppi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PPI, start_date=str(start),
+                                                          end_date=str(end))
+    pmi_data = await MacroDataManage.get_macro_data_local(types=MacroDataEnum.PMI, start_date=str(start),
+                                                          end_date=str(end))
+    # 格式化时间report_date并设置为设置索引
+    cpi_data.set_index("report_date", inplace=True)
+    ppi_data.set_index("report_date", inplace=True)
+    pmi_data.set_index("report_date", inplace=True)
+    # endregion
+    # NOTE 数据库获取出的cpi(MOM) 和ppi(YOY)数据不用重新计算 pmi的则是原始数据
+    cpi_data.columns = ["CPI_Inflation_Rate"]
+    ppi_data.columns = ["PPI_Inflation_Rate"]
+    pmi_data.columns = ["PMI"]
+    # FIXME cpi ppi和股票的交互特征
+    # 合并两个数据（并集） 线性插值填数据
+    macro_data = (pd.merge(left=cpi_data, right=ppi_data, left_index=True, right_index=True, how='outer')
+                  .interpolate(method='linear'))
+    # 计算PMI(MOM)
+    pmi_data["PMI_YOY"] = pmi_data["PMI"].pct_change().ffill()
+    # 合并三个数据（并集） 线性插值填数据
+    macro_data = (pd.merge(left=macro_data, right=pmi_data, left_index=True, right_index=True, how='outer')
+                  .interpolate(method='linear'))
+    macro_data.sort_index(inplace=True)
+    # 将股票的收盘价数据和宏观数据合并
+    stock_macro_data = stock_data[["close_price"]].join(macro_data, how='inner')
+    return stock_macro_data
+
+# 股票收盘价和三个宏观数据的关系分析
+async def stock_indicators_correlation(stock_code, stock_data):
+    #获取数据
+    stock_macro_data = await FeatureEngine.get_merged_data(None,None,stock_code)
+    # 设置图形大小
+    plt.figure(figsize=(10, 6))
+
+    # 定义要分析的指标
+    indicators = ['CPI', 'PPI', 'PMI']
+
+    for indicator in indicators:
+        # 绘制散点图和线性回归线
+        sns.regplot(x=stock_macro_data[indicator].astype(float),
+                    y=stock_macro_data['Close'].astype(float),
+                    scatter_kws={'s': 10},
+                    line_kws={'color': 'red'})
+
+        # 设置图形标题和标签
+        plt.title(f'Relationship Between {indicator} and Close Price', fontsize=14)
+        plt.xlabel(indicator, fontsize=12)
+        plt.ylabel('Close Price', fontsize=12)
+        plt.grid(True)
+        plt.tight_layout()
+
+        # 保存图形
+        plt.savefig(f'../picture/{stock_code}/{indicator}_and_close.png', bbox_inches='tight')
+        plt.show()
+        plt.close()
+
+        # 计算相关性
+        indicator_values = stock_macro_data[indicator].astype(float)
+        close_price = stock_macro_data['Close'].astype(float)
+        correlation, p_value = pearsonr(indicator_values, close_price)
+
+        log.info(f"Pearson Correlation Coefficient between {indicator} and Close Price: {correlation:.4f}")
+        log.info(f"P-value: {p_value:.4f}")
+
+        # 解释结果
+        if p_value < 0.05:
+            if correlation > 0:
+                log.info(f"{indicator} 和 Close Price 具有统计显著的正相关。")
+            else:
+                log.info(f"{indicator} 和 Close Price 具有统计显著性的负相关.")
+        else:
+            log.info(f"{indicator} 和 Close Price 没有统计上显著的相关性.")
+
+
 # 交易量和收盘价的关系分析
 async def stock_volume_price_correlation(stock_code, stock_data):
     plt.figure(figsize=(10, 6))  # 设置图形大小
@@ -442,9 +501,11 @@ async def stock_volume_price_correlation(stock_code, stock_data):
     else:
         log.info("交易量和收盘价之间没有统计学上的显著相关性.")
 
+
+
 @db_connection
 async def main():
-    await analyse_stock_data(stock_code=ExponentEnum.HS300.get_code(), start_date=None, end_date=None)
+    await analyse_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date=None, end_date=None)
 
 
 if __name__ == '__main__':
