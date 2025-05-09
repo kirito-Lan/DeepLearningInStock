@@ -8,7 +8,7 @@ where indicator_id = 1910667833528946688
 
 select *
 from macro_data
-where indicator_id not in (select id from indicator where code in ('CPI', 'PPI'));
+where indicator_id  in (select id from indicator where code in  ('PMI'));
 
 
 select *
