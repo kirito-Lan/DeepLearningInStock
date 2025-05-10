@@ -54,7 +54,7 @@ async def analyse_stock_data(stock_code, start_date, end_date):
     #研究交易量和收盘价的相关性
     await stock_volume_price_correlation(stock_code=stock_code, stock_data=stock_data)
     # 股票与宏观数据的相关性
-    await stock_indicators_correlation(stock_code=stock_code, start_date=start_date, end_date=end_date)
+    await draw_scatter(stock_code=stock_code, start_date=start_date, end_date=end_date)
 
 async def stock_basic_info(stock_code, stock_data):
     """
@@ -365,7 +365,9 @@ async def stock_macro_correlation(stock_code, stock_data):
 
 
 # 绘制三个宏观指标和股票收盘价的散点图
-async def draw_scatter(stock_code, stock_macro_data):
+async def draw_scatter(stock_code, start_date, end_date):
+    #获取数据
+    stock_macro_data = await FeatureEngine.get_merged_data(stock_code=stock_code,start_date=start_date,end_date=end_date)
     """绘制三个宏观指标和股票收盘价的散点图"""
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 3, 1)
@@ -464,55 +466,6 @@ def weighted_monthly_avg(df_daily:pd.DataFrame):
 
 
 
-
-# 股票收盘价和三个宏观数据的关系分析
-async def stock_indicators_correlation(stock_code, start_date,end_date):
-    #获取数据
-    stock_macro_data = await FeatureEngine.get_merged_data(stock_code=stock_code,start_date=start_date,end_date=end_date)
-    # 设置图形大小
-    plt.figure(figsize=(10, 6))
-
-    # 定义要分析的指标
-    indicators = ['CPI', 'PPI', 'PMI']
-
-    for indicator in indicators:
-        # 绘制散点图和线性回归线
-        sns.regplot(x=stock_macro_data[indicator].astype(float),
-                    y=stock_macro_data['Close'].astype(float),
-                    scatter_kws={'s': 10},
-                    line_kws={'color': 'red'})
-
-        # 设置图形标题和标签
-        plt.title(f'Relationship Between {indicator} and Close Price', fontsize=14)
-        plt.xlabel(indicator, fontsize=12)
-        plt.ylabel('Close Price', fontsize=12)
-        plt.grid(True)
-        plt.tight_layout()
-
-        # 保存图形
-        plt.savefig(f'../picture/{stock_code}/{indicator}_and_close.png', bbox_inches='tight')
-        plt.show()
-        plt.close()
-
-        # 计算相关性
-        indicator_values = stock_macro_data[indicator].astype(float)
-        close_price = stock_macro_data['Close'].astype(float)
-        correlation, p_value = pearsonr(indicator_values, close_price)
-
-        log.info(f"Pearson Correlation Coefficient between {indicator} and Close Price: {correlation:.4f}")
-        log.info(f"P-value: {p_value:.4f}")
-
-        # 解释结果
-        if p_value < 0.05:
-            if correlation > 0:
-                log.info(f"{indicator} 和 Close Price 具有统计显著的正相关。")
-            else:
-                log.info(f"{indicator} 和 Close Price 具有统计显著性的负相关.")
-        else:
-            log.info(f"{indicator} 和 Close Price 没有统计上显著的相关性.")
-
-    # 画出散点图
-    await draw_scatter(stock_code, stock_macro_data)
 
 # 交易量和收盘价的关系分析
 async def stock_volume_price_correlation(stock_code, stock_data):
