@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, ks_2samp
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -54,8 +54,7 @@ async def analyse_stock_data(stock_code, start_date, end_date):
     #研究交易量和收盘价的相关性
     await stock_volume_price_correlation(stock_code=stock_code, stock_data=stock_data)
     # 股票与宏观数据的相关性
-    await stock_indicators_correlation(stock_code=stock_code, stock_data=stock_data)
-
+    await stock_indicators_correlation(stock_code=stock_code, start_date=start_date, end_date=end_date)
 
 async def stock_basic_info(stock_code, stock_data):
     """
@@ -271,11 +270,11 @@ async def stock_macro_correlation(stock_code, stock_data):
     # region
 
     stock_macro_data = await _get_macro_stock_data(stock_data)
-
+    stock_macro_data['CPI_Inflation_Rate']= stock_macro_data['CPI_Inflation_Rate'].ewm(span=5, adjust=False).mean()
     # region
     # 画图 设置x轴时间跨度为5年
     # Closing Price
-    plt.figure(figsize=(16, 10))
+    plt.figure(figsize=(16, 12))
     plt.subplot(411)
     plt.plot(stock_macro_data.index, stock_macro_data['close_price'], label='Closing Price', color='blue')
     plt.title(f'{stock_code} Closing Price')
@@ -284,31 +283,31 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.legend()
     # CPI_Inflation_Rate
     plt.subplot(412)
-    plt.plot(stock_macro_data.index, stock_macro_data['CPI_Inflation_Rate'], label='CPI Inflation Rate', color='red')
-    plt.title('CPI Inflation Rate (MOM)')
-
-    plt.ylabel('Inflation Rate')
+    plt.plot(stock_macro_data.index, stock_macro_data['CPI_Inflation_Rate'], label='CPI MOM', color='red')
+    plt.title('CPI  (MOM)')
+    plt.ylabel('Rate')
     plt.grid(True)
     plt.legend()
     # PPI_Inflation_Rate
     plt.subplot(413)
-    plt.plot(stock_macro_data.index, stock_macro_data['PPI_Inflation_Rate'], label='PPI Inflation Rate', color='green')
-    plt.title('PPI Inflation Rate (YOY)')
-    plt.ylabel('Inflation Rate')
+    plt.plot(stock_macro_data.index, stock_macro_data['PPI_Inflation_Rate'], label='PPI MOM', color='green')
+    plt.title('PPI (MOM)')
+    plt.ylabel('Rate')
     plt.grid(True)
     plt.legend()
     # PMI_Ori
     plt.subplot(414)
-    plt.plot(stock_macro_data.index, stock_macro_data['PMI_YOY'], label='PMI', color='purple')
-    plt.title('PMI Change(MOM)')
+    plt.plot(stock_macro_data.index, stock_macro_data['PMI'], label='PMI', color='purple')
+    plt.title('PMI (MOM)')
+    plt.grid(True)
     plt.ylabel('Value')
     plt.legend()
-    plt.tight_layout()
     # 设置 X 轴时间格式
     for ax in plt.gcf().axes:
         ax.xaxis.set_major_locator(mdates.YearLocator(5))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         ax.set_xlabel('Date')
+    plt.tight_layout()
     plt.savefig(f'../picture/{stock_code}/macro_correlation.svg', bbox_inches='tight')
     plt.show()
     plt.close()
@@ -362,29 +361,31 @@ async def stock_macro_correlation(stock_code, stock_data):
     plt.savefig(f'../picture/{stock_code}/regression_actual_vs_pred.svg',bbox_inches='tight')
     plt.show()
     plt.close()
+    # endregion
 
-    # 绘制三个宏观指标和股票收盘价的散点图
+
+# 绘制三个宏观指标和股票收盘价的散点图
+async def draw_scatter(stock_code, stock_macro_data):
+    """绘制三个宏观指标和股票收盘价的散点图"""
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 3, 1)
-    plt.scatter(stock_macro_data['CPI_Inflation_Rate'], stock_macro_data['close_price'], color='blue', alpha=0.6)
-    plt.xlabel('CPI Inflation Rate(%)')
+    plt.scatter(stock_macro_data['CPI'], stock_macro_data['Close'], color='blue', alpha=0.6)
+    plt.xlabel('CPI')
     plt.ylabel(f'{stock_code} Closing Prices')
-
     plt.subplot(1, 3, 2)
-    plt.scatter(stock_macro_data['PPI_Inflation_Rate'], stock_macro_data['close_price'], color='green', alpha=0.6)
+    plt.scatter(stock_macro_data['PPI'], stock_macro_data['Close'], color='green', alpha=0.6)
     plt.title('Relationship with Stock Closing Prices')
-    plt.xlabel('PPI Inflation Rate(%)')
+    plt.xlabel('PPI')
     plt.ylabel(f'{stock_code} Closing Prices')
-
     plt.subplot(1, 3, 3)
-    plt.scatter(stock_macro_data['PMI_YOY'], stock_macro_data['close_price'], color='red', alpha=0.6)
-    plt.xlabel('PMI YOY(%)')
+    plt.scatter(stock_macro_data['PMI'], stock_macro_data['Close'], color='red', alpha=0.6)
+    plt.xlabel('PMI')
     plt.ylabel(f'{stock_code} Closing Prices')
     plt.tight_layout()
-    plt.savefig(f'../picture/{stock_code}/feature_and_close.svg',bbox_inches='tight')
+    plt.savefig(f'../picture/{stock_code}/feature_and_close.svg', bbox_inches='tight')
     plt.show()
     plt.close()
-    # endregion
+
 
 # 获取宏观数据和股票数据，数据集数量有限。以宏观数据为基准。只包含宏观数据和收盘价
 async def _get_macro_stock_data(stock_data)->pd.DataFrame:
@@ -409,6 +410,20 @@ async def _get_macro_stock_data(stock_data)->pd.DataFrame:
     cpi_data.columns = ["CPI_Inflation_Rate"]
     ppi_data.columns = ["PPI_Inflation_Rate"]
     pmi_data.columns = ["PMI"]
+
+    #数据归并到月度
+    cpi_data.index = cpi_data.index.strftime('%Y-%m')
+    ppi_data.index = ppi_data.index.strftime('%Y-%m')
+    pmi_data.index = pmi_data.index.strftime('%Y-%m')
+    # 丢弃重复值
+    cpi_data = cpi_data[~cpi_data.index.duplicated(keep='first')]
+    ppi_data = ppi_data[~ppi_data.index.duplicated(keep='first')]
+    pmi_data = pmi_data[~pmi_data.index.duplicated(keep='first')]
+
+    cpi_data.index = pd.to_datetime(cpi_data.index, format='%Y-%m')
+    ppi_data.index = pd.to_datetime(ppi_data.index, format='%Y-%m')
+    pmi_data.index = pd.to_datetime(pmi_data.index, format='%Y-%m')
+
     # FIXME cpi ppi和股票的交互特征
     # 合并两个数据（并集） 线性插值填数据
     macro_data = (pd.merge(left=cpi_data, right=ppi_data, left_index=True, right_index=True, how='outer')
@@ -420,13 +435,40 @@ async def _get_macro_stock_data(stock_data)->pd.DataFrame:
                   .interpolate(method='linear'))
     macro_data.sort_index(inplace=True)
     # 将股票的收盘价数据和宏观数据合并
-    stock_macro_data = stock_data[["close_price"]].join(macro_data, how='inner')
+    # stock_macro_data = stock_data[["close_price"]].join(macro_data, how='inner')
+    # 重采样成月度数据
+    monthly_avg = weighted_monthly_avg(stock_data).to_frame(name='close_price')
+    stock_macro_data=monthly_avg[["close_price"]].join(macro_data, how='inner')
+
+    #ks校验
+    loss = ks_loss(stock_data, stock_macro_data, 'close_price')
+    log.debug(loss)
     return stock_macro_data
 
+
+
+
+def weighted_monthly_avg(df_daily:pd.DataFrame):
+    # 按月分组并计算加权平均
+    def _calc_weighted(group):
+        n = len(group)
+        if n == 0:
+            return np.nan
+        days = np.arange(1, n+1)
+        weights = 2 * days / (n * (n + 1))  # 动态计算权重
+        group['close_price'] = group['close_price'].astype(float)
+        return np.dot(group['close_price'], weights)
+    # 按月重采样
+    monthly_avg = df_daily.resample('MS').apply(_calc_weighted)
+    return monthly_avg
+
+
+
+
 # 股票收盘价和三个宏观数据的关系分析
-async def stock_indicators_correlation(stock_code, stock_data):
+async def stock_indicators_correlation(stock_code, start_date,end_date):
     #获取数据
-    stock_macro_data = await FeatureEngine.get_merged_data(None,None,stock_code)
+    stock_macro_data = await FeatureEngine.get_merged_data(stock_code=stock_code,start_date=start_date,end_date=end_date)
     # 设置图形大小
     plt.figure(figsize=(10, 6))
 
@@ -469,6 +511,8 @@ async def stock_indicators_correlation(stock_code, stock_data):
         else:
             log.info(f"{indicator} 和 Close Price 没有统计上显著的相关性.")
 
+    # 画出散点图
+    await draw_scatter(stock_code, stock_macro_data)
 
 # 交易量和收盘价的关系分析
 async def stock_volume_price_correlation(stock_code, stock_data):
@@ -502,10 +546,53 @@ async def stock_volume_price_correlation(stock_code, stock_data):
         log.info("交易量和收盘价之间没有统计学上的显著相关性.")
 
 
+def ks_loss(daily_df, monthly_df, column='close_price'):
+    """
+    计算日频数据与月频数据在指定列上的 Kolmogorov-Smirnov 损失指标，并输出损失严重程度判断。
+
+    参数:
+      daily_df: 日频数据 DataFrame
+      monthly_df: 月频数据 DataFrame
+      column: 用于测量分布的列名，默认为 'close_price'
+
+    返回值:
+      result: 包含 K-S 统计量、p-value 以及额外判断信息的字典
+    """
+    # 提取有效数据（去除缺失值）
+    daily_series = daily_df[column].dropna()
+    monthly_series = monthly_df[column].dropna()
+
+    # 计算 K-S 检验结果（两个样本数据量不一致也无妨）
+    ks_result = ks_2samp(daily_series, monthly_series)
+
+    # 获取统计量和 p 值
+    ks_stat = ks_result.statistic
+    p_value = ks_result.pvalue
+
+    # 根据 p_value 和 ks_statistic 的值进行简单判断
+    if p_value > 0.05:
+        evaluation = "分布差异不显著：p-value > 0.05，损失不严重。"
+    else:
+        # p_value 显著，此时利用 ks_statistic 来判断损失程度
+        if ks_stat < 0.1:
+            evaluation = "损失较轻：聚合后数据基本保留原始分布特性。"
+        elif ks_stat < 0.3:
+            evaluation = "损失适中：分布存在一定差异。"
+        else:
+            evaluation = "损失较重：聚合后数据的分布差异较大，信息丢失较多。"
+
+    result = {
+        "ks_statistic": ks_stat,
+        "p_value": p_value,
+        "evaluation": evaluation
+    }
+
+    return result
+
 
 @db_connection
 async def main():
-    await analyse_stock_data(stock_code=ExponentEnum.SZCZ.get_code(), start_date=None, end_date=None)
+    await analyse_stock_data(stock_code=ExponentEnum.SZI.get_code(), start_date="2005-01-01", end_date=None)
 
 
 if __name__ == '__main__':
