@@ -45,7 +45,7 @@ async def crawl_macro_data(types: MacroDataEnum = MacroDataEnum.CPI) -> int:
         name = china_macro_data["商品"][0]
         # 判断 indicator 是否存在
         # count = (await db.fetch_one(query=text(BaseSql.isIndicateExist).bindparams(name=name)))["num"]
-        count=MacroData.objects.filter(name=name).count()
+        count= await Indicator.objects.filter(name=name).count()
         if count == 0:
             # 填充数据 构造主表入库信息
             frequency = PERIOD.MONTHLY
@@ -59,7 +59,7 @@ async def crawl_macro_data(types: MacroDataEnum = MacroDataEnum.CPI) -> int:
             log.info("入库对象:【" + indicator.__str__() + "】")
         else:
             # indicator_id = (await db.fetch_one(query=text(BaseSql.getIndicateId).bindparams(name=name)))["id"]
-            indicator_id = (await MacroData.objects.filter(name=name).get_or_none()).id
+            indicator_id = (await Indicator.objects.filter(name=name).get_or_none()).id
             # log.info("回查indicator_id【{}】", indicator_id)
 
         """数据清洗
