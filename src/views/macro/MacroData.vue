@@ -195,6 +195,8 @@ const columns = [
     dataIndex: 'report_date',
     key: 'report_date',
     sorter: true,
+    sortDirections: ['ascend', 'descend'],
+    defaultSortOrder: 'descend',
     customRender: ({ text }: { text: string }) => {
       return dayjs(text).format('YYYY-MM-DD')
     },
@@ -249,12 +251,12 @@ const handleZoomChange = (value: number) => {
   let endIndex = dataLength
 
   if (value < 50) {
-    // 放大左側数据
+    // 放大左侧数据
     const zoomFactor = (50 - value) / 50 // 0 到 1 的缩放因子
     const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
     endIndex = Math.min(dataLength, startIndex + visibleCount)
   } else if (value > 50) {
-    // 放大右側数据
+    // 放大右侧数据
     const zoomFactor = (value - 50) / 50 // 0 到 1 的缩放因子
     const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
     startIndex = Math.max(0, endIndex - visibleCount)
@@ -273,10 +275,14 @@ const handleZoomReset = () => {
 
 // 更新图表数据
 const updateChartData = (data = tableData.value) => {
-  const dates = data.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
-  const currentValues = data.map((item) => item.current_value)
-  const forecastValues = data.map((item) => item.forecast_value)
-  const previousValues = data.map((item) => item.previous_value)
+  // 确保图表数据是按时间升序排列
+  const sortedData = [...data].sort(
+    (a, b) => dayjs(a.report_date).valueOf() - dayjs(b.report_date).valueOf(),
+  )
+  const dates = sortedData.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
+  const currentValues = sortedData.map((item) => item.current_value)
+  const forecastValues = sortedData.map((item) => item.forecast_value)
+  const previousValues = sortedData.map((item) => item.previous_value)
 
   chartOption.value.xAxis.data = dates
   chartOption.value.series[0].data = currentValues
@@ -304,20 +310,24 @@ const handleSearch = async () => {
     const response = await getMacroDataMacroGetMacroDataPost(searchForm.value)
     if (response.data.code === 200) {
       const data = response.data.data as MacroDataItem[]
-      // 按日期升序排序
-      const sortedData = [...data].sort(
+      // 按日期升序排序（图表）
+      const sortedDataForChart = [...data].sort(
         (a, b) => dayjs(a.report_date).valueOf() - dayjs(b.report_date).valueOf(),
       )
-      tableData.value = sortedData
-      pagination.value.total = sortedData.length
+      // 按日期降序排序（表格）
+      const sortedDataForTable = [...data].sort(
+        (a, b) => dayjs(b.report_date).valueOf() - dayjs(a.report_date).valueOf(),
+      )
+      tableData.value = sortedDataForTable
+      pagination.value.total = sortedDataForTable.length
       // 重置缩放
       chartZoom.value = 50
-      updateChartData()
+      updateChartData(sortedDataForChart)
     } else {
-      message.error(response.data.msg || '獲取數據失敗')
+      message.error(response.data.msg || '获取数据失败')
     }
   } catch (error) {
-    message.error('獲取數據失敗')
+    message.error('获取数据失败')
     console.error(error)
   } finally {
     loading.value = false
