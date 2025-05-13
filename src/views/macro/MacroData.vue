@@ -2,39 +2,105 @@
   <div class="macro-data-container">
     <a-card>
       <div class="search-container">
-        <a-row :gutter="16" class="search-row" justify="center">
-          <a-col :span="6">
-            <a-select
-              v-model:value="searchForm.types"
-              placeholder="请选择数据类型"
-              style="width: 100%"
-            >
-              <a-select-option value="CPI">CPI</a-select-option>
-              <a-select-option value="PPI">PPI</a-select-option>
-              <a-select-option value="PMI">PMI</a-select-option>
-            </a-select>
+        <a-row :gutter="16" class="search-row" align="middle">
+          <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+            <div class="search-item">
+              <div class="input-with-label">
+                <div class="label-container">
+                  <BarChartOutlined class="label-icon" />
+                  <a-label>宏观数据</a-label>
+                </div>
+                <a-select
+                  v-model:value="searchForm.types"
+                  placeholder="请选择宏观数据"
+                  style="width: 100%"
+                  @change="handleTypeChange"
+                >
+                  <a-select-option value="CPI">
+                    <template #icon><LineChartOutlined /></template>
+                    CPI
+                  </a-select-option>
+                  <a-select-option value="PPI">
+                    <template #icon><LineChartOutlined /></template>
+                    PPI
+                  </a-select-option>
+                  <a-select-option value="PMI">
+                    <template #icon><LineChartOutlined /></template>
+                    PMI
+                  </a-select-option>
+                </a-select>
+              </div>
+            </div>
           </a-col>
-          <a-col :span="8">
-            <a-range-picker
-              v-model:value="dateRange"
-              style="width: 100%"
-              @change="handleDateChange"
-            />
+          <a-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+            <div class="search-item">
+              <div class="input-with-label">
+                <div class="label-container">
+                  <CalendarOutlined class="label-icon" />
+                  <a-label>日期范围</a-label>
+                </div>
+                <a-range-picker
+                  v-model:value="dateRange"
+                  style="width: 100%"
+                  @change="handleDateChange"
+                />
+              </div>
+            </div>
           </a-col>
-          <a-col :span="4">
-            <a-button type="primary" @click="handleSearch">查询</a-button>
+          <a-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
+            <div class="search-item">
+              <a-button type="primary" @click="handleSearch">
+                <template #icon><SearchOutlined /></template>
+                查询
+              </a-button>
+            </div>
           </a-col>
-          <a-col :span="6">
-            <a-space>
-              <a-button @click="handleExportCsv">导出CSV</a-button>
-              <a-button @click="handleExportExcel">导出Excel</a-button>
-            </a-space>
+          <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+            <div class="search-item">
+              <a-space>
+                <a-button @click="handleExportCsv">
+                  <template #icon><FileExcelOutlined /></template>
+                  导出CSV
+                </a-button>
+                <a-button @click="handleExportExcel">
+                  <template #icon><FileExcelOutlined /></template>
+                  批量导出Excel
+                </a-button>
+              </a-space>
+            </div>
           </a-col>
         </a-row>
       </div>
 
       <div class="chart-container">
         <v-chart class="chart" :option="chartOption" autoresize />
+      </div>
+
+      <!-- 缩放控制条 -->
+      <div class="zoom-control-container">
+        <a-row :gutter="16" align="middle">
+          <a-col :span="2">
+            <span class="zoom-label">数据范围：</span>
+          </a-col>
+          <a-col :span="20">
+            <a-slider
+              v-model:value="chartZoom"
+              :min="1"
+              :max="100"
+              :step="1"
+              :tooltip-visible="false"
+              class="custom-slider"
+              @change="handleZoomChange"
+            />
+          </a-col>
+          <a-col :span="2">
+            <a-tooltip title="重置缩放">
+              <a-button @click="handleZoomReset">
+                <template #icon><UndoOutlined /></template>
+              </a-button>
+            </a-tooltip>
+          </a-col>
+        </a-row>
       </div>
 
       <a-table
@@ -62,6 +128,14 @@ import VChart from 'vue-echarts'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
+import {
+  UndoOutlined,
+  BarChartOutlined,
+  CalendarOutlined,
+  SearchOutlined,
+  FileExcelOutlined,
+  LineChartOutlined,
+} from '@ant-design/icons-vue'
 import { getMacroDataMacroGetMacroDataPost, getMacroCsvMacroGetMacroCsvPost } from '@/api/macro'
 import { batchExportToExcelCommonBatchExportToExcelPost } from '@/api/common'
 import type { MacroDataItem } from '@/typings/macro'
@@ -147,11 +221,74 @@ const pagination = ref({
   total: 0,
 })
 
+// 缩放栏响应式变量
+const chartZoom = ref(50)
+
 // 处理日期变化
 const handleDateChange = (dates: [Dayjs, Dayjs]) => {
   if (dates) {
     searchForm.value.start_date = dates[0].format('YYYY-MM-DD')
     searchForm.value.end_date = dates[1].format('YYYY-MM-DD')
+  }
+}
+
+// 处理数据类型变化
+const handleTypeChange = () => {
+  handleSearch()
+}
+
+// 处理缩放变化
+const handleZoomChange = (value: number) => {
+  const dataLength = tableData.value.length
+  let startIndex = 0
+  let endIndex = dataLength
+
+  if (value < 50) {
+    // 放大左側数据
+    const zoomFactor = (50 - value) / 50 // 0 到 1 的缩放因子
+    const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
+    endIndex = Math.min(dataLength, startIndex + visibleCount)
+  } else if (value > 50) {
+    // 放大右側数据
+    const zoomFactor = (value - 50) / 50 // 0 到 1 的缩放因子
+    const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
+    startIndex = Math.max(0, endIndex - visibleCount)
+  }
+
+  // 更新图表数据
+  const visibleData = tableData.value.slice(startIndex, endIndex)
+  updateChartData(visibleData)
+}
+
+// 重置缩放
+const handleZoomReset = () => {
+  chartZoom.value = 50
+  updateChartData(tableData.value)
+}
+
+// 更新图表数据
+const updateChartData = (data = tableData.value) => {
+  const dates = data.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
+  const currentValues = data.map((item) => item.current_value)
+  const forecastValues = data.map((item) => item.forecast_value)
+  const previousValues = data.map((item) => item.previous_value)
+
+  chartOption.value.xAxis.data = dates
+  chartOption.value.series[0].data = currentValues
+  chartOption.value.series[1].data = forecastValues
+  chartOption.value.series[2].data = previousValues
+
+  // 根据数据类型调整 Y 轴范围
+  if (searchForm.value.types === 'PMI') {
+    const min = Math.min(...currentValues, ...forecastValues, ...previousValues)
+    const max = Math.max(...currentValues, ...forecastValues, ...previousValues)
+    const padding = 2 // 上下各留 2 个单位的空间
+    chartOption.value.yAxis.min = Math.floor(min - padding)
+    chartOption.value.yAxis.max = Math.ceil(max + padding)
+  } else {
+    // 其他数据类型使用自动缩放
+    chartOption.value.yAxis.min = undefined
+    chartOption.value.yAxis.max = undefined
   }
 }
 
@@ -167,22 +304,14 @@ const handleSearch = async () => {
       )
       tableData.value = sortedData
       pagination.value.total = sortedData.length
-
-      // 更新图表数据
-      const dates = sortedData.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
-      const currentValues = sortedData.map((item) => item.current_value)
-      const forecastValues = sortedData.map((item) => item.forecast_value)
-      const previousValues = sortedData.map((item) => item.previous_value)
-
-      chartOption.value.xAxis.data = dates
-      chartOption.value.series[0].data = currentValues
-      chartOption.value.series[1].data = forecastValues
-      chartOption.value.series[2].data = previousValues
+      // 重置缩放
+      chartZoom.value = 50
+      updateChartData()
     } else {
-      message.error(response.data.msg || '获取数据失败')
+      message.error(response.data.msg || '獲取數據失敗')
     }
   } catch (error) {
-    message.error('获取数据失败')
+    message.error('獲取數據失敗')
     console.error(error)
   }
 }
@@ -260,11 +389,116 @@ onMounted(() => {
 
 .search-container {
   margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(to right, #fafafa, #f5f5f5);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .search-row {
   display: flex;
   align-items: center;
+}
+
+.search-item {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.input-with-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.label-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.label-icon {
+  font-size: 16px;
+  color: #1890ff;
+}
+
+/* 响应式布局 */
+@media screen and (max-width: 768px) {
+  .search-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .input-with-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .label-container {
+    margin-bottom: 4px;
+  }
+
+  :deep(.ant-space) {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  :deep(.ant-btn) {
+    flex: 1;
+  }
+}
+
+:deep(.ant-select-selector) {
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.ant-select-selector:hover) {
+  border-color: #40a9ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1) !important;
+}
+
+:deep(.ant-select-focused .ant-select-selector) {
+  border-color: #40a9ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+:deep(.ant-picker) {
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.ant-picker:hover) {
+  border-color: #40a9ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1) !important;
+}
+
+:deep(.ant-picker-focused) {
+  border-color: #40a9ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+:deep(.ant-btn) {
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.ant-btn:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+:deep(.ant-btn:active) {
+  transform: translateY(0);
 }
 
 .chart-container {
@@ -275,5 +509,98 @@ onMounted(() => {
 .chart {
   height: 100%;
   width: 100%;
+}
+
+.zoom-control-container {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(to right, #fafafa, #f5f5f5);
+  border-radius: 12px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.zoom-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+:deep(.custom-slider) {
+  margin: 10px 0;
+  cursor: pointer;
+}
+
+:deep(.custom-slider .ant-slider-rail) {
+  height: 6px;
+  background: linear-gradient(to right, #e6f7ff, #bae7ff);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+:deep(.custom-slider .ant-slider-track) {
+  height: 6px;
+  background: linear-gradient(to right, #1890ff, #40a9ff);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+:deep(.custom-slider .ant-slider-handle) {
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  background: #fff;
+  border: 2px solid #1890ff;
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: grab;
+}
+
+:deep(.custom-slider .ant-slider-handle:active) {
+  cursor: grabbing;
+  border-color: #096dd9;
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+:deep(.custom-slider:hover .ant-slider-rail) {
+  background: linear-gradient(to right, #e6f7ff, #91d5ff);
+}
+
+:deep(.custom-slider:hover .ant-slider-track) {
+  background: linear-gradient(to right, #40a9ff, #69c0ff);
+}
+
+:deep(.custom-slider:hover .ant-slider-handle) {
+  border-color: #40a9ff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+:deep(.custom-slider .ant-slider-handle::after) {
+  display: none;
+}
+
+:deep(.custom-slider .ant-slider-handle::before) {
+  display: none;
+}
+
+:deep(.custom-slider .ant-slider-mark) {
+  top: 14px;
+}
+
+:deep(.custom-slider .ant-slider-mark-text) {
+  color: #999;
+  font-size: 12px;
+  transform: translateX(-50%);
+}
+
+:deep(.custom-slider .ant-slider-mark-text-active) {
+  color: #666;
+}
+
+:deep(.custom-slider .ant-slider-handle:focus) {
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
 }
 </style>

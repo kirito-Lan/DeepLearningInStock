@@ -140,29 +140,17 @@
                 :min="1"
                 :max="100"
                 :step="1"
-                :tooltip-visible="true"
+                :tooltip-visible="false"
                 class="custom-slider"
                 @change="handleZoomChange"
               />
             </a-col>
             <a-col :span="2">
-              <a-button-group>
-                <a-tooltip title="重置缩放">
-                  <a-button @click="handleZoomReset">
-                    <template #icon><UndoOutlined /></template>
-                  </a-button>
-                </a-tooltip>
-                <a-tooltip title="放大">
-                  <a-button @click="handleZoomIn">
-                    <template #icon><ZoomInOutlined /></template>
-                  </a-button>
-                </a-tooltip>
-                <a-tooltip title="缩小">
-                  <a-button @click="handleZoomOut">
-                    <template #icon><ZoomOutOutlined /></template>
-                  </a-button>
-                </a-tooltip>
-              </a-button-group>
+              <a-tooltip title="重置缩放">
+                <a-button @click="handleZoomReset">
+                  <template #icon><UndoOutlined /></template>
+                </a-button>
+              </a-tooltip>
             </a-col>
           </a-row>
         </div>
@@ -451,32 +439,31 @@ const handleStockChange = () => {
 
 // 处理缩放变化
 const handleZoomChange = (value: number) => {
-  // 根据缩放值调整图表显示范围
   const dataLength = tableData.value.length
-  const visibleCount = Math.floor(dataLength * (value / 100))
-  const startIndex = Math.max(0, dataLength - visibleCount)
-  const visibleData = tableData.value.slice(startIndex)
+  let startIndex = 0
+  let endIndex = dataLength
 
-  // 更新图表数据
+  if (value < 50) {
+    // 放大右側數據
+    const zoomFactor = (50 - value) / 50 // 0 到 1 的縮放因子
+    const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
+    startIndex = Math.max(0, endIndex - visibleCount)
+  } else if (value > 50) {
+    // 放大左側數據
+    const zoomFactor = (value - 50) / 50 // 0 到 1 的縮放因子
+    const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
+    endIndex = Math.min(dataLength, startIndex + visibleCount)
+  }
+
+  // 更新圖表數據
+  const visibleData = tableData.value.slice(startIndex, endIndex)
   updateChartData(visibleData)
 }
 
-// 重置缩放
+// 重置縮放
 const handleZoomReset = () => {
   chartZoom.value = 50
-  handleZoomChange(50)
-}
-
-// 放大
-const handleZoomIn = () => {
-  chartZoom.value = Math.min(100, chartZoom.value + 10)
-  handleZoomChange(chartZoom.value)
-}
-
-// 缩小
-const handleZoomOut = () => {
-  chartZoom.value = Math.max(1, chartZoom.value - 10)
-  handleZoomChange(chartZoom.value)
+  updateChartData(tableData.value)
 }
 
 // 获取涨跌幅的样式类
@@ -507,6 +494,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#1890ff',
           },
+          symbol: 'none',
         },
         {
           name: '收盘价',
@@ -518,6 +506,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#52c41a',
           },
+          symbol: 'none',
         },
         {
           name: '最高价',
@@ -529,6 +518,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#f5222d',
           },
+          symbol: 'none',
         },
         {
           name: '最低价',
@@ -540,6 +530,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#fa8c16',
           },
+          symbol: 'none',
         },
       ]
       break
@@ -556,6 +547,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#1890ff',
           },
+          symbol: 'none',
         },
       ]
       break
@@ -572,6 +564,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#1890ff',
           },
+          symbol: 'none',
         },
       ]
       break
@@ -588,6 +581,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#1890ff',
           },
+          symbol: 'none',
         },
       ]
       break
@@ -604,6 +598,7 @@ const updateChartData = (data = tableData.value) => {
           itemStyle: {
             color: '#1890ff',
           },
+          symbol: 'none',
         },
       ]
       break
@@ -859,70 +854,93 @@ onMounted(() => {
 .zoom-control-container {
   margin: 16px 0;
   padding: 16px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
+  background: linear-gradient(to right, #fafafa, #f5f5f5);
+  border-radius: 12px;
   position: relative;
   z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .zoom-label {
   font-size: 14px;
   color: #666;
+  font-weight: 500;
 }
 
 :deep(.custom-slider) {
   margin: 10px 0;
+  cursor: pointer;
 }
 
 :deep(.custom-slider .ant-slider-rail) {
-  height: 2px;
-  background-color: #e8e8e8;
+  height: 6px;
+  background: linear-gradient(to right, #e6f7ff, #bae7ff);
+  border-radius: 3px;
+  transition: all 0.3s ease;
 }
 
 :deep(.custom-slider .ant-slider-track) {
-  height: 2px;
-  background-color: #1890ff;
+  height: 6px;
+  background: linear-gradient(to right, #1890ff, #40a9ff);
+  border-radius: 3px;
+  transition: all 0.3s ease;
 }
 
 :deep(.custom-slider .ant-slider-handle) {
-  width: 12px;
-  height: 12px;
-  margin-top: -5px;
-  background-color: #fff;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  background: #fff;
   border: 2px solid #1890ff;
-  box-shadow: none;
-}
-
-:deep(.custom-slider .ant-slider-handle:focus) {
-  box-shadow: none;
-}
-
-:deep(.custom-slider .ant-slider-handle:hover) {
-  border-color: #40a9ff;
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: grab;
 }
 
 :deep(.custom-slider .ant-slider-handle:active) {
+  cursor: grabbing;
   border-color: #096dd9;
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
 }
 
-:deep(.custom-slider .ant-slider-tooltip) {
-  z-index: 2;
+:deep(.custom-slider:hover .ant-slider-rail) {
+  background: linear-gradient(to right, #e6f7ff, #91d5ff);
+}
+
+:deep(.custom-slider:hover .ant-slider-track) {
+  background: linear-gradient(to right, #40a9ff, #69c0ff);
+}
+
+:deep(.custom-slider:hover .ant-slider-handle) {
+  border-color: #40a9ff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+:deep(.custom-slider .ant-slider-handle::after) {
+  display: none;
+}
+
+:deep(.custom-slider .ant-slider-handle::before) {
+  display: none;
+}
+
+:deep(.custom-slider .ant-slider-mark) {
+  top: 14px;
 }
 
 :deep(.custom-slider .ant-slider-mark-text) {
   color: #999;
   font-size: 12px;
-}
-
-:deep(.custom-slider .ant-slider-mark) {
-  top: 10px;
+  transform: translateX(-50%);
 }
 
 :deep(.custom-slider .ant-slider-mark-text-active) {
   color: #666;
 }
 
-:deep(.echarts-tooltip) {
-  z-index: 1000;
+:deep(.custom-slider .ant-slider-handle:focus) {
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
 }
 </style>
