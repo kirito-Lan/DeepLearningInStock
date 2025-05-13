@@ -1,180 +1,186 @@
 <template>
   <div class="stock-data-container">
-    <a-card>
-      <div class="search-container">
-        <a-row :gutter="16" class="search-row" justify="center">
-          <a-col :span="2">
-            <div class="label-container">
-              <StockOutlined class="label-icon" />
-              <a-label>选择股指</a-label>
-            </div>
-          </a-col>
-          <a-col :span="6">
-            <a-select
-              v-model:value="searchForm.stock_code"
-              placeholder="请选择股票"
-              style="width: 100%"
-              @change="handleStockChange"
-            >
-              <a-select-option v-for="stock in stockList" :key="stock.code" :value="stock.code">
-                {{ stock.name }}
-              </a-select-option>
-            </a-select>
-          </a-col>
-          <a-col :span="2">
-            <div class="label-container">
-              <CalendarOutlined class="label-icon" />
-              <a-label>日期范围</a-label>
-            </div>
-          </a-col>
-          <a-col :span="8">
-            <a-range-picker
-              v-model:value="dateRange"
-              style="width: 100%"
-              :disabledDate="disabledDate"
-              @change="handleDateChange"
-            />
-          </a-col>
-          <a-col :span="6">
-            <a-space>
-              <a-button type="primary" @click="handleSearch">
-                <template #icon><SearchOutlined /></template>
-                查询
-              </a-button>
-              <a-button @click="handleExportCsv">
-                <template #icon><FileExcelOutlined /></template>
-                导出CSV
-              </a-button>
-              <a-button @click="handleExportExcel">
-                <template #icon><FileExcelOutlined /></template>
-                导出Excel
-              </a-button>
-            </a-space>
-          </a-col>
-        </a-row>
-      </div>
-
-      <!-- 最新股票资讯面板 -->
-      <div v-if="tableData.length > 0" class="latest-stock-info">
-        <a-card>
-          <template #title>
-            <div class="latest-stock-title">
-              <InfoCircleOutlined />
-              <span>最新股票资讯</span>
-              <a-tag color="blue" class="time-tag">
-                <ClockCircleOutlined />
-                {{ tableData[0].trade_date }}
-              </a-tag>
-            </div>
-          </template>
-          <a-row :gutter="16">
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><RiseOutlined /> 开盘价</div>
-                <div class="info-value">{{ tableData[0].open_price }}</div>
+    <a-spin :spinning="loading" tip="数据加载中...">
+      <a-card>
+        <div class="search-container">
+          <a-row :gutter="16" class="search-row" justify="center">
+            <a-col :span="2">
+              <div class="label-container">
+                <StockOutlined class="label-icon" />
+                <a-label>选择股指</a-label>
               </div>
             </a-col>
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><FallOutlined /> 收盘价</div>
-                <div class="info-value">{{ tableData[0].close_price }}</div>
+            <a-col :span="6">
+              <a-select
+                v-model:value="searchForm.stock_code"
+                placeholder="请选择股票"
+                style="width: 100%"
+                @change="handleStockChange"
+              >
+                <a-select-option v-for="stock in stockList" :key="stock.code" :value="stock.code">
+                  {{ stock.name }}
+                </a-select-option>
+              </a-select>
+            </a-col>
+            <a-col :span="2">
+              <div class="label-container">
+                <CalendarOutlined class="label-icon" />
+                <a-label>日期范围</a-label>
               </div>
             </a-col>
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><ArrowUpOutlined /> 最高价</div>
-                <div class="info-value">{{ tableData[0].high_price }}</div>
-              </div>
+            <a-col :span="8">
+              <a-range-picker
+                v-model:value="dateRange"
+                style="width: 100%"
+                :disabledDate="disabledDate"
+                @change="handleDateChange"
+              />
             </a-col>
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><ArrowDownOutlined /> 最低价</div>
-                <div class="info-value">{{ tableData[0].low_price }}</div>
-              </div>
-            </a-col>
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><BarChartOutlined /> 成交量</div>
-                <div class="info-value">{{ tableData[0].volume }}</div>
-              </div>
-            </a-col>
-            <a-col :span="4">
-              <div class="info-item">
-                <div class="info-label"><LineChartOutlined /> 涨跌幅</div>
-                <div class="info-value" :class="getChangeRateClass(tableData[0].change_rate)">
-                  {{ tableData[0].change_rate }}%
-                </div>
-              </div>
+            <a-col :span="6">
+              <a-space>
+                <a-button type="primary" @click="handleSearch">
+                  <template #icon><SearchOutlined /></template>
+                  查询
+                </a-button>
+                <a-button @click="handleExportCsv">
+                  <template #icon><FileExcelOutlined /></template>
+                  导出CSV
+                </a-button>
+                <a-button @click="handleExportExcel">
+                  <template #icon><FileExcelOutlined /></template>
+                  导出Excel
+                </a-button>
+              </a-space>
             </a-col>
           </a-row>
-        </a-card>
-      </div>
-
-      <div class="chart-container">
-        <div class="chart-header">
-          <a-radio-group v-model:value="chartType" button-style="solid" class="chart-type-selector">
-            <a-radio-button value="price">价格走势</a-radio-button>
-            <a-radio-button value="volume">成交量</a-radio-button>
-            <a-radio-button value="turnover">成交额</a-radio-button>
-            <a-radio-button value="amplitude">振幅</a-radio-button>
-            <a-radio-button value="change">涨跌幅</a-radio-button>
-          </a-radio-group>
         </div>
-        <v-chart class="chart" :option="chartOption" autoresize />
-      </div>
 
-      <!-- 缩放控制条 -->
-      <div class="zoom-control-container">
-        <a-row :gutter="16" align="middle">
-          <a-col :span="2">
-            <span class="zoom-label">数据范围：</span>
-          </a-col>
-          <a-col :span="20">
-            <a-slider
-              v-model:value="chartZoom"
-              :min="1"
-              :max="100"
-              :step="1"
-              :tooltip-visible="true"
-              class="custom-slider"
-              @change="handleZoomChange"
-            />
-          </a-col>
-          <a-col :span="2">
-            <a-button-group>
-              <a-tooltip title="重置缩放">
-                <a-button @click="handleZoomReset">
-                  <template #icon><UndoOutlined /></template>
-                </a-button>
-              </a-tooltip>
-              <a-tooltip title="放大">
-                <a-button @click="handleZoomIn">
-                  <template #icon><ZoomInOutlined /></template>
-                </a-button>
-              </a-tooltip>
-              <a-tooltip title="缩小">
-                <a-button @click="handleZoomOut">
-                  <template #icon><ZoomOutOutlined /></template>
-                </a-button>
-              </a-tooltip>
-            </a-button-group>
-          </a-col>
-        </a-row>
-      </div>
+        <!-- 最新股票资讯面板 -->
+        <div v-if="tableData.length > 0" class="latest-stock-info">
+          <a-card>
+            <template #title>
+              <div class="latest-stock-title">
+                <InfoCircleOutlined />
+                <span>最新股票资讯</span>
+                <a-tag color="blue" class="time-tag">
+                  <ClockCircleOutlined />
+                  {{ tableData[0].trade_date }}
+                </a-tag>
+              </div>
+            </template>
+            <a-row :gutter="16">
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><RiseOutlined /> 开盘价</div>
+                  <div class="info-value">{{ tableData[0].open_price }}</div>
+                </div>
+              </a-col>
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><FallOutlined /> 收盘价</div>
+                  <div class="info-value">{{ tableData[0].close_price }}</div>
+                </div>
+              </a-col>
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><ArrowUpOutlined /> 最高价</div>
+                  <div class="info-value">{{ tableData[0].high_price }}</div>
+                </div>
+              </a-col>
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><ArrowDownOutlined /> 最低价</div>
+                  <div class="info-value">{{ tableData[0].low_price }}</div>
+                </div>
+              </a-col>
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><BarChartOutlined /> 成交量</div>
+                  <div class="info-value">{{ tableData[0].volume }}</div>
+                </div>
+              </a-col>
+              <a-col :span="4">
+                <div class="info-item">
+                  <div class="info-label"><LineChartOutlined /> 涨跌幅</div>
+                  <div class="info-value" :class="getChangeRateClass(tableData[0].change_rate)">
+                    {{ tableData[0].change_rate }}%
+                  </div>
+                </div>
+              </a-col>
+            </a-row>
+          </a-card>
+        </div>
 
-      <a-table
-        :columns="columns"
-        :data-source="tableData"
-        :pagination="pagination"
-        @change="handleTableChange"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'action'">
-            <a @click="showDetail(record)">查看详情</a>
+        <div class="chart-container">
+          <div class="chart-header">
+            <a-radio-group
+              v-model:value="chartType"
+              button-style="solid"
+              class="chart-type-selector"
+            >
+              <a-radio-button value="price">价格走势</a-radio-button>
+              <a-radio-button value="volume">成交量</a-radio-button>
+              <a-radio-button value="turnover">成交额</a-radio-button>
+              <a-radio-button value="amplitude">振幅</a-radio-button>
+              <a-radio-button value="change">涨跌幅</a-radio-button>
+            </a-radio-group>
+          </div>
+          <v-chart class="chart" :option="chartOption" autoresize />
+        </div>
+
+        <!-- 缩放控制条 -->
+        <div class="zoom-control-container">
+          <a-row :gutter="16" align="middle">
+            <a-col :span="2">
+              <span class="zoom-label">数据范围：</span>
+            </a-col>
+            <a-col :span="20">
+              <a-slider
+                v-model:value="chartZoom"
+                :min="1"
+                :max="100"
+                :step="1"
+                :tooltip-visible="true"
+                class="custom-slider"
+                @change="handleZoomChange"
+              />
+            </a-col>
+            <a-col :span="2">
+              <a-button-group>
+                <a-tooltip title="重置缩放">
+                  <a-button @click="handleZoomReset">
+                    <template #icon><UndoOutlined /></template>
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip title="放大">
+                  <a-button @click="handleZoomIn">
+                    <template #icon><ZoomInOutlined /></template>
+                  </a-button>
+                </a-tooltip>
+                <a-tooltip title="缩小">
+                  <a-button @click="handleZoomOut">
+                    <template #icon><ZoomOutOutlined /></template>
+                  </a-button>
+                </a-tooltip>
+              </a-button-group>
+            </a-col>
+          </a-row>
+        </div>
+
+        <a-table
+          :columns="columns"
+          :data-source="tableData"
+          :pagination="pagination"
+          @change="handleTableChange"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'action'">
+              <a @click="showDetail(record)">查看详情</a>
+            </template>
           </template>
-        </template>
-      </a-table>
-    </a-card>
+        </a-table>
+      </a-card>
+    </a-spin>
 
     <a-modal v-model:visible="detailVisible" :footer="null" width="800px">
       <div class="detail-header">
@@ -221,44 +227,46 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, BarChart } from 'echarts/charts'
+import { BarChart, LineChart } from 'echarts/charts'
 import {
+  GridComponent,
+  LegendComponent,
   TitleComponent,
   TooltipComponent,
-  LegendComponent,
-  GridComponent,
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { message } from 'ant-design-vue'
-import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
 import {
-  StockOutlined,
-  CalendarOutlined,
-  SearchOutlined,
-  FileExcelOutlined,
-  InfoCircleOutlined,
-  ClockCircleOutlined,
-  RiseOutlined,
-  FallOutlined,
-  ArrowUpOutlined,
   ArrowDownOutlined,
+  ArrowUpOutlined,
   BarChartOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  DashboardOutlined,
+  FallOutlined,
+  FileExcelOutlined,
+  FundOutlined,
+  InfoCircleOutlined,
   LineChartOutlined,
   MoneyCollectOutlined,
-  DashboardOutlined,
-  FundOutlined,
+  RiseOutlined,
+  SearchOutlined,
+  StockOutlined,
   SwapOutlined,
   UndoOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons-vue'
-import { getStockListStockGetStockListGet } from '@/api/stock'
-import { getStockDataStockGetStockDataPost } from '@/api/stock'
-import { getStockCsvStockGetStockCsvPost } from '@/api/stock'
+import {
+  getStockCsvStockGetStockCsvPost,
+  getStockDataStockGetStockDataPost,
+  getStockListStockGetStockListGet,
+} from '@/api/stock'
 import { batchExportToExcelCommonBatchExportToExcelPost } from '@/api/common'
 import type { StockDataItem } from '@/typings/stock'
 
@@ -404,8 +412,12 @@ const detailData = ref<StockDataItem>({} as StockDataItem)
 // 添加新的响应式变量
 const chartZoom = ref(50)
 
+// 添加加载状态
+const loading = ref(false)
+
 // 获取股票列表
 const getStockList = async () => {
+  loading.value = true
   try {
     const response = await getStockListStockGetStockListGet()
     if (response.data.code === 200) {
@@ -413,12 +425,14 @@ const getStockList = async () => {
       // 自动选择第一个股票并加载数据
       if (stockList.value.length > 0) {
         searchForm.value.stock_code = stockList.value[0].code
-        handleSearch()
+        await handleSearch()
       }
     }
   } catch (error) {
     message.error('获取股票列表失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -598,6 +612,7 @@ const updateChartData = (data = tableData.value) => {
 
 // 搜索
 const handleSearch = async () => {
+  loading.value = true
   try {
     const response = await getStockDataStockGetStockDataPost(searchForm.value)
     if (response.data.code === 200) {
@@ -610,11 +625,14 @@ const handleSearch = async () => {
   } catch (error) {
     message.error('获取数据失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 // 导出CSV
 const handleExportCsv = async () => {
+  loading.value = true
   try {
     const response = await getStockCsvStockGetStockCsvPost(searchForm.value)
     if (response.data) {
@@ -631,11 +649,14 @@ const handleExportCsv = async () => {
   } catch (error) {
     message.error('导出失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 // 导出Excel
 const handleExportExcel = async () => {
+  loading.value = true
   try {
     const response = await batchExportToExcelCommonBatchExportToExcelPost(
       {
@@ -665,6 +686,8 @@ const handleExportExcel = async () => {
   } catch (error) {
     message.error('导出失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -679,7 +702,7 @@ const handleTableChange = (
 
   // 处理排序
   if (sorter && sorter.field) {
-    const sortData = [...tableData.value].sort((a, b) => {
+    tableData.value = [...tableData.value].sort((a, b) => {
       let compareA, compareB
 
       // 根据字段类型进行不同的排序处理
@@ -698,8 +721,6 @@ const handleTableChange = (
       }
       return 0
     })
-
-    tableData.value = sortData
   }
 }
 

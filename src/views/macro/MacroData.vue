@@ -65,7 +65,6 @@ import type { Dayjs } from 'dayjs'
 import { getMacroDataMacroGetMacroDataPost, getMacroCsvMacroGetMacroCsvPost } from '@/api/macro'
 import { batchExportToExcelCommonBatchExportToExcelPost } from '@/api/common'
 import type { MacroDataItem } from '@/typings/macro'
-import type { BaseResponse } from '@/typings/api'
 
 // 注册必要的组件
 use([CanvasRenderer, LineChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
@@ -162,14 +161,18 @@ const handleSearch = async () => {
     const response = await getMacroDataMacroGetMacroDataPost(searchForm.value)
     if (response.data.code === 200) {
       const data = response.data.data as MacroDataItem[]
-      tableData.value = data
-      pagination.value.total = data.length
+      // 按日期升序排序
+      const sortedData = [...data].sort(
+        (a, b) => dayjs(a.report_date).valueOf() - dayjs(b.report_date).valueOf(),
+      )
+      tableData.value = sortedData
+      pagination.value.total = sortedData.length
 
       // 更新图表数据
-      const dates = data.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
-      const currentValues = data.map((item) => item.current_value)
-      const forecastValues = data.map((item) => item.forecast_value)
-      const previousValues = data.map((item) => item.previous_value)
+      const dates = sortedData.map((item) => dayjs(item.report_date).format('YYYY-MM-DD'))
+      const currentValues = sortedData.map((item) => item.current_value)
+      const forecastValues = sortedData.map((item) => item.forecast_value)
+      const previousValues = sortedData.map((item) => item.previous_value)
 
       chartOption.value.xAxis.data = dates
       chartOption.value.series[0].data = currentValues
