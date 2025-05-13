@@ -215,7 +215,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart, LineChart } from 'echarts/charts'
@@ -247,8 +247,6 @@ import {
   StockOutlined,
   SwapOutlined,
   UndoOutlined,
-  ZoomInOutlined,
-  ZoomOutOutlined,
 } from '@ant-design/icons-vue'
 import {
   getStockCsvStockGetStockCsvPost,
@@ -286,7 +284,7 @@ const disabledDate = (current: Dayjs) => {
 }
 
 // 图表配置
-const chartOption = ref({
+const priceChartOption = ref({
   tooltip: {
     trigger: 'axis',
     axisPointer: {
@@ -295,38 +293,9 @@ const chartOption = ref({
         backgroundColor: '#6a7985',
       },
     },
-    formatter: (params: any) => {
-      const date = params[0].axisValue
-      const data = tableData.value.find((item) => item.trade_date === date)
-      if (!data) return ''
-
-      let result = `<div style="font-weight: bold">${date}</div>`
-
-      // 根据当前图表类型显示不同的数据
-      switch (chartType.value) {
-        case 'volume':
-          result += `<div>成交量：${data.volume}</div>`
-          break
-        case 'turnover':
-          result += `<div>成交额：${data.turnover_amount}</div>`
-          break
-        case 'amplitude':
-          result += `<div>振幅：${data.amplitude}%</div>`
-          break
-        case 'change':
-          result += `<div>涨跌幅：${data.change_rate}%</div>`
-          break
-        default:
-          params.forEach((param: any) => {
-            const color = param.color
-            result += `<div style="color: ${color}">${param.seriesName}：${param.value}</div>`
-          })
-      }
-      return result
-    },
   },
   legend: {
-    data: [] as string[],
+    data: ['开盘价', '收盘价', '最高价', '最低价'],
   },
   grid: {
     left: '3%',
@@ -344,6 +313,148 @@ const chartOption = ref({
     scale: true,
   },
   series: [] as any[],
+})
+
+const volumeChartOption = ref({
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross',
+      label: {
+        backgroundColor: '#6a7985',
+      },
+    },
+  },
+  legend: {
+    data: ['成交量'],
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '10%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: [] as string[],
+  },
+  yAxis: {
+    type: 'value',
+    scale: true,
+  },
+  series: [] as any[],
+})
+
+const turnoverChartOption = ref({
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross',
+      label: {
+        backgroundColor: '#6a7985',
+      },
+    },
+  },
+  legend: {
+    data: ['成交额'],
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '10%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: [] as string[],
+  },
+  yAxis: {
+    type: 'value',
+    scale: true,
+  },
+  series: [] as any[],
+})
+
+const amplitudeChartOption = ref({
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross',
+      label: {
+        backgroundColor: '#6a7985',
+      },
+    },
+  },
+  legend: {
+    data: ['振幅'],
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '10%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: [] as string[],
+  },
+  yAxis: {
+    type: 'value',
+    scale: true,
+  },
+  series: [] as any[],
+})
+
+const changeChartOption = ref({
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross',
+      label: {
+        backgroundColor: '#6a7985',
+      },
+    },
+  },
+  legend: {
+    data: ['涨跌幅'],
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '10%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: [] as string[],
+  },
+  yAxis: {
+    type: 'value',
+    scale: true,
+  },
+  series: [] as any[],
+})
+
+// 计算属性：根据当前图表类型返回对应的配置
+const chartOption = computed(() => {
+  switch (chartType.value) {
+    case 'price':
+      return priceChartOption.value
+    case 'volume':
+      return volumeChartOption.value
+    case 'turnover':
+      return turnoverChartOption.value
+    case 'amplitude':
+      return amplitudeChartOption.value
+    case 'change':
+      return changeChartOption.value
+    default:
+      return priceChartOption.value
+  }
 })
 
 // 表格配置
@@ -444,23 +555,23 @@ const handleZoomChange = (value: number) => {
   let endIndex = dataLength
 
   if (value < 50) {
-    // 放大右側數據
-    const zoomFactor = (50 - value) / 50 // 0 到 1 的縮放因子
+    // 放大右侧数据
+    const zoomFactor = (50 - value) / 50 // 0 到 1 的缩放因子
     const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
     startIndex = Math.max(0, endIndex - visibleCount)
   } else if (value > 50) {
-    // 放大左側數據
-    const zoomFactor = (value - 50) / 50 // 0 到 1 的縮放因子
+    // 放大左侧数据
+    const zoomFactor = (value - 50) / 50 // 0 到 1 的缩放因子
     const visibleCount = Math.floor(dataLength * (1 - zoomFactor))
     endIndex = Math.min(dataLength, startIndex + visibleCount)
   }
 
-  // 更新圖表數據
+  // 更新图表数据
   const visibleData = tableData.value.slice(startIndex, endIndex)
   updateChartData(visibleData)
 }
 
-// 重置縮放
+// 重置缩放
 const handleZoomReset = () => {
   chartZoom.value = 50
   updateChartData(tableData.value)
@@ -478,131 +589,97 @@ const updateChartData = (data = tableData.value) => {
   // 反转数据顺序，使最新的数据在右边
   const reversedData = [...data].reverse()
   const dates = reversedData.map((item) => item.trade_date)
-  chartOption.value.xAxis.data = dates
 
-  switch (chartType.value) {
-    case 'price':
-      chartOption.value.legend.data = ['开盘价', '收盘价', '最高价', '最低价']
-      chartOption.value.series = [
-        {
-          name: '开盘价',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.open_price)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#1890ff',
-          },
-          symbol: 'none',
-        },
-        {
-          name: '收盘价',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.close_price)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#52c41a',
-          },
-          symbol: 'none',
-        },
-        {
-          name: '最高价',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.high_price)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#f5222d',
-          },
-          symbol: 'none',
-        },
-        {
-          name: '最低价',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.low_price)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#fa8c16',
-          },
-          symbol: 'none',
-        },
-      ]
-      break
-    case 'volume':
-      chartOption.value.legend.data = ['成交量']
-      chartOption.value.series = [
-        {
-          name: '成交量',
-          type: 'line',
-          data: reversedData.map((item) => item.volume),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#1890ff',
-          },
-          symbol: 'none',
-        },
-      ]
-      break
-    case 'turnover':
-      chartOption.value.legend.data = ['成交额']
-      chartOption.value.series = [
-        {
-          name: '成交额',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.turnover_amount)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#1890ff',
-          },
-          symbol: 'none',
-        },
-      ]
-      break
-    case 'amplitude':
-      chartOption.value.legend.data = ['振幅']
-      chartOption.value.series = [
-        {
-          name: '振幅',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.amplitude)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#1890ff',
-          },
-          symbol: 'none',
-        },
-      ]
-      break
-    case 'change':
-      chartOption.value.legend.data = ['涨跌幅']
-      chartOption.value.series = [
-        {
-          name: '涨跌幅',
-          type: 'line',
-          data: reversedData.map((item) => parseFloat(item.change_rate)),
-          emphasis: {
-            focus: 'series',
-          },
-          itemStyle: {
-            color: '#1890ff',
-          },
-          symbol: 'none',
-        },
-      ]
-      break
-  }
+  // 更新所有图表的 X 轴数据
+  priceChartOption.value.xAxis.data = dates
+  volumeChartOption.value.xAxis.data = dates
+  turnoverChartOption.value.xAxis.data = dates
+  amplitudeChartOption.value.xAxis.data = dates
+  changeChartOption.value.xAxis.data = dates
+
+  // 更新价格图表数据
+  priceChartOption.value.series = [
+    {
+      name: '开盘价',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.open_price)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#1890ff' },
+      symbol: 'none',
+    },
+    {
+      name: '收盘价',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.close_price)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#52c41a' },
+      symbol: 'none',
+    },
+    {
+      name: '最高价',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.high_price)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#f5222d' },
+      symbol: 'none',
+    },
+    {
+      name: '最低价',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.low_price)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#fa8c16' },
+      symbol: 'none',
+    },
+  ]
+
+  // 更新成交量图表数据
+  volumeChartOption.value.series = [
+    {
+      name: '成交量',
+      type: 'line',
+      data: reversedData.map((item) => item.volume),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#1890ff' },
+      symbol: 'none',
+    },
+  ]
+
+  // 更新成交额图表数据
+  turnoverChartOption.value.series = [
+    {
+      name: '成交额',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.turnover_amount)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#1890ff' },
+      symbol: 'none',
+    },
+  ]
+
+  // 更新振幅图表数据
+  amplitudeChartOption.value.series = [
+    {
+      name: '振幅',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.amplitude)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#1890ff' },
+      symbol: 'none',
+    },
+  ]
+
+  // 更新涨跌幅图表数据
+  changeChartOption.value.series = [
+    {
+      name: '涨跌幅',
+      type: 'line',
+      data: reversedData.map((item) => parseFloat(item.change_rate)),
+      emphasis: { focus: 'series' },
+      itemStyle: { color: '#1890ff' },
+      symbol: 'none',
+    },
+  ]
 }
 
 // 搜索

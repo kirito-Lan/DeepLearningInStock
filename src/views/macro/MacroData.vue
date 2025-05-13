@@ -1,115 +1,117 @@
 <template>
   <div class="macro-data-container">
-    <a-card>
-      <div class="search-container">
-        <a-row :gutter="16" class="search-row" align="middle">
-          <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-            <div class="search-item">
-              <div class="input-with-label">
-                <div class="label-container">
-                  <BarChartOutlined class="label-icon" />
-                  <a-label>宏观数据</a-label>
+    <a-spin :spinning="loading" tip="数据加载中...">
+      <a-card>
+        <div class="search-container">
+          <a-row :gutter="16" class="search-row" align="middle">
+            <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+              <div class="search-item">
+                <div class="input-with-label">
+                  <div class="label-container">
+                    <BarChartOutlined class="label-icon" />
+                    <a-label>宏观数据</a-label>
+                  </div>
+                  <a-select
+                    v-model:value="searchForm.types"
+                    placeholder="请选择宏观数据"
+                    style="width: 100%"
+                    @change="handleTypeChange"
+                  >
+                    <a-select-option value="CPI">
+                      <template #icon><LineChartOutlined /></template>
+                      CPI
+                    </a-select-option>
+                    <a-select-option value="PPI">
+                      <template #icon><LineChartOutlined /></template>
+                      PPI
+                    </a-select-option>
+                    <a-select-option value="PMI">
+                      <template #icon><LineChartOutlined /></template>
+                      PMI
+                    </a-select-option>
+                  </a-select>
                 </div>
-                <a-select
-                  v-model:value="searchForm.types"
-                  placeholder="请选择宏观数据"
-                  style="width: 100%"
-                  @change="handleTypeChange"
-                >
-                  <a-select-option value="CPI">
-                    <template #icon><LineChartOutlined /></template>
-                    CPI
-                  </a-select-option>
-                  <a-select-option value="PPI">
-                    <template #icon><LineChartOutlined /></template>
-                    PPI
-                  </a-select-option>
-                  <a-select-option value="PMI">
-                    <template #icon><LineChartOutlined /></template>
-                    PMI
-                  </a-select-option>
-                </a-select>
               </div>
-            </div>
-          </a-col>
-          <a-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-            <div class="search-item">
-              <div class="input-with-label">
-                <div class="label-container">
-                  <CalendarOutlined class="label-icon" />
-                  <a-label>日期范围</a-label>
+            </a-col>
+            <a-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+              <div class="search-item">
+                <div class="input-with-label">
+                  <div class="label-container">
+                    <CalendarOutlined class="label-icon" />
+                    <a-label>日期范围</a-label>
+                  </div>
+                  <a-range-picker
+                    v-model:value="dateRange"
+                    style="width: 100%"
+                    @change="handleDateChange"
+                  />
                 </div>
-                <a-range-picker
-                  v-model:value="dateRange"
-                  style="width: 100%"
-                  @change="handleDateChange"
-                />
               </div>
-            </div>
-          </a-col>
-          <a-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-            <div class="search-item">
-              <a-button type="primary" @click="handleSearch">
-                <template #icon><SearchOutlined /></template>
-                查询
-              </a-button>
-            </div>
-          </a-col>
-          <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-            <div class="search-item">
-              <a-space>
-                <a-button @click="handleExportCsv">
-                  <template #icon><FileExcelOutlined /></template>
-                  导出CSV
+            </a-col>
+            <a-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
+              <div class="search-item">
+                <a-button type="primary" @click="handleSearch">
+                  <template #icon><SearchOutlined /></template>
+                  查询
                 </a-button>
-                <a-button @click="handleExportExcel">
-                  <template #icon><FileExcelOutlined /></template>
-                  批量导出Excel
+              </div>
+            </a-col>
+            <a-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+              <div class="search-item">
+                <a-space>
+                  <a-button @click="handleExportCsv">
+                    <template #icon><FileExcelOutlined /></template>
+                    导出CSV
+                  </a-button>
+                  <a-button @click="handleExportExcel">
+                    <template #icon><FileExcelOutlined /></template>
+                    批量导出Excel
+                  </a-button>
+                </a-space>
+              </div>
+            </a-col>
+          </a-row>
+        </div>
+
+        <div class="chart-container">
+          <v-chart class="chart" :option="chartOption" autoresize />
+        </div>
+
+        <!-- 缩放控制条 -->
+        <div class="zoom-control-container">
+          <a-row :gutter="16" align="middle">
+            <a-col :span="2">
+              <span class="zoom-label">数据范围：</span>
+            </a-col>
+            <a-col :span="20">
+              <a-slider
+                v-model:value="chartZoom"
+                :min="1"
+                :max="100"
+                :step="1"
+                :tooltip-visible="false"
+                class="custom-slider"
+                @change="handleZoomChange"
+              />
+            </a-col>
+            <a-col :span="2">
+              <a-tooltip title="重置缩放">
+                <a-button @click="handleZoomReset">
+                  <template #icon><UndoOutlined /></template>
                 </a-button>
-              </a-space>
-            </div>
-          </a-col>
-        </a-row>
-      </div>
+              </a-tooltip>
+            </a-col>
+          </a-row>
+        </div>
 
-      <div class="chart-container">
-        <v-chart class="chart" :option="chartOption" autoresize />
-      </div>
-
-      <!-- 缩放控制条 -->
-      <div class="zoom-control-container">
-        <a-row :gutter="16" align="middle">
-          <a-col :span="2">
-            <span class="zoom-label">数据范围：</span>
-          </a-col>
-          <a-col :span="20">
-            <a-slider
-              v-model:value="chartZoom"
-              :min="1"
-              :max="100"
-              :step="1"
-              :tooltip-visible="false"
-              class="custom-slider"
-              @change="handleZoomChange"
-            />
-          </a-col>
-          <a-col :span="2">
-            <a-tooltip title="重置缩放">
-              <a-button @click="handleZoomReset">
-                <template #icon><UndoOutlined /></template>
-              </a-button>
-            </a-tooltip>
-          </a-col>
-        </a-row>
-      </div>
-
-      <a-table
-        :columns="columns"
-        :data-source="tableData"
-        :pagination="pagination"
-        @change="handleTableChange"
-      />
-    </a-card>
+        <a-table
+          :columns="columns"
+          :data-source="tableData"
+          :pagination="pagination"
+          @change="handleTableChange"
+        />
+      </a-card>
+    </a-spin>
   </div>
 </template>
 
@@ -224,6 +226,9 @@ const pagination = ref({
 // 缩放栏响应式变量
 const chartZoom = ref(50)
 
+// 加载状态
+const loading = ref(false)
+
 // 处理日期变化
 const handleDateChange = (dates: [Dayjs, Dayjs]) => {
   if (dates) {
@@ -294,6 +299,7 @@ const updateChartData = (data = tableData.value) => {
 
 // 搜索
 const handleSearch = async () => {
+  loading.value = true
   try {
     const response = await getMacroDataMacroGetMacroDataPost(searchForm.value)
     if (response.data.code === 200) {
@@ -313,11 +319,14 @@ const handleSearch = async () => {
   } catch (error) {
     message.error('獲取數據失敗')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 // 导出CSV
 const handleExportCsv = async () => {
+  loading.value = true
   try {
     const response = await getMacroCsvMacroGetMacroCsvPost(searchForm.value)
     if (response.data) {
@@ -334,11 +343,14 @@ const handleExportCsv = async () => {
   } catch (error) {
     message.error('导出CSV失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 // 导出Excel
 const handleExportExcel = async () => {
+  loading.value = true
   try {
     const response = await batchExportToExcelCommonBatchExportToExcelPost(
       {
@@ -367,6 +379,8 @@ const handleExportExcel = async () => {
   } catch (error) {
     message.error('导出Excel失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
