@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal, ROUND_HALF_UP
 from types import NoneType
 from typing import Dict
 
@@ -52,6 +53,14 @@ async def get_stock_data(body: GetStockRequest):
     start_date, end_date = format_date(body.start_date, body.end_date)
     stock_data = await StockDataManage.get_stock_data(stock_code=body.stock_code, start_date=start_date,
                                                       end_date=end_date)
+    #时间降序排列
+    stock_data.sort_values('trade_date', ascending=False,inplace=True)
+    # 对数据进行处理，保留三位小数HalfUp（数据类型是decimal类型）
+    # 里面还有时间列，如果遍历到的是时间列就不处理,反之就是进行数据截断
+    for column in stock_data.columns[1:]:
+        stock_data[column] = stock_data[column].apply(
+            lambda x: float(Decimal(str(x)).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)))
+
     if stock_data.empty:
         return BaseResponse[NoneType].fail(ErrorCode.NOT_FOUND_ERROR)
     return BaseResponse[list[dict]].success(stock_data.to_dict(orient='records'))
