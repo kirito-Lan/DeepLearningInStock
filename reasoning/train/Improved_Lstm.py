@@ -14,7 +14,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.regularizers import L2
 
-from config.LoguruConfig import log
+from config.LoguruConfig import log, project_root
 from constant.ExponentEnum import ExponentEnum
 from manager.decoration.dbconnect import db_connection
 import seaborn as sns
@@ -28,8 +28,11 @@ np.random.seed(seed)
 random.seed(seed)
 
 
-async def build_model(stock_code: str, start_date: str, end_date: str):
+file_root= str(project_root/"reasoning/")
+
+async def build_model(stock_code: str, start_date: str, end_date: str, epochs:int,reg:float,dropout:float):
     """构建并训练LSTM股票预测模型"""
+    log.info(f"开始构建模型epochs: 【{epochs} 】reg: 【{reg} 】dropout: 【{dropout}】")
     # 获取枚举值
     stock = ExponentEnum.get_enum_by_code(stock_code)
     if stock is None:
@@ -67,7 +70,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
     y_scaled = scaler_y.fit_transform(y)
 
     # 模型训练配置
-    window_lengths = [20, 60, 90]
+    window_lengths = [20, 30, 60]
     best_metrics = {
         'window': None,
         'model': None,
@@ -97,14 +100,14 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         # 模型架构
         model = Sequential()
         model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
-        model.add(LSTM(64, return_sequences=True, kernel_regularizer=L2(0.001)))
-        model.add(Dropout(0.3))
+        # 添加L2正则化减少过拟合
+        model.add(LSTM(64, return_sequences=True, kernel_regularizer=L2(reg)))
+        model.add(Dropout(dropout))
         model.add(LSTM(32, return_sequences=False))
-        model.add(Dropout(0.3))
+        model.add(Dropout(dropout))
         # 输出层
         model.add(Dense(1))
 
-        # 添加L2正则化减少过拟合
         model.compile(optimizer=Adam(learning_rate=0.0001), loss='mean_squared_error', metrics=['mae'])
         # 输出模型摘要信息
         model.summary()
@@ -112,7 +115,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         checkpoint_path = f'../model/{stock.get_code()}_temp_{time_steps}.keras'
         temp_files.append(checkpoint_path)
         callbacks = [
-            EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True),
+            EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
             ModelCheckpoint(checkpoint_path, save_best_only=True)
         ]
 
@@ -120,7 +123,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         history = model.fit(
             X_train, y_train,
             validation_data=(X_val, y_val),
-            epochs=150,
+            epochs=epochs,
             batch_size=32,
             callbacks=callbacks,
             verbose=1
@@ -176,7 +179,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
     r2 = r2_score(true_prices, pred_prices)
 
     # 打印模型评估结果
-    print(f"""
+    log.info(f"""
     模型评估结果:
     MSE: {mse:.2f}
     RMSE: {rmse:.2f}
@@ -240,12 +243,21 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
         'Actual': true_prices.flatten(),
         'Predicted': pred_prices.flatten()
     })
-    result_df.to_csv(f'../results/predicted_close{stock.get_code()}.csv', index=False)
+    result_df.to_csv(f'{file_root}/results/predicted_close{stock.get_code()}.csv', index=False)
+
+    # 保存训练损失和验证损失
+    pd.DataFrame({
+        'Epochs': list(range(1, len(best_metrics['history']['loss']) + 1)),
+        'Training Loss': best_metrics['history']['loss'],
+        'Validation Loss': best_metrics['history']['val_loss']
+    }).to_csv(f'{file_root}/results/training_losses_{stock.get_code()}.csv', index=False)
+
+    return True
 
 
 @db_connection
 async def main():
-    await build_model(stock_code=ExponentEnum.SZCZ.get_code(),start_date=None,end_date=None)
+    await build_model(stock_code=ExponentEnum.SZCZ.get_code(),start_date=None,end_date=None,epochs=150, reg=0.001 ,dropout=0.3)
 
 
 if __name__ == "__main__":

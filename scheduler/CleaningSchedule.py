@@ -83,4 +83,4 @@ scheduler.add_job(clean_db_bad_data, trigger='cron', hour=1)
 # 每天18点执行一次更新任务
 scheduler.add_job(update_stock_data_schedule, trigger='cron', hour=18)
 # 每个月的20号执行一次更新任务
-scheduler.add_job(update_macro_data_schedule, trigger='cron', day=20)
+scheduler.add_job(update_macro_data_schedule, trigger='cron', day=10)

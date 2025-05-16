@@ -1,3 +1,5 @@
+import asyncio
+
 import pandas as pd
 import numpy as np
 from keras import Input
@@ -16,11 +18,13 @@ import warnings
 
 from config.LoguruConfig import log
 from constant.ExponentEnum import ExponentEnum
+from manager.decoration.dbconnect import db_connection
 from reasoning.analyse.FeatureEngine import feature_engineering
 from utils.ReFormatDate import format_date
 
 warnings.filterwarnings("ignore")
 
+@db_connection
 # 使用交叉验证构造时间序列数据集进行增强
 async def build_model(stock_code: str, start_date: str, end_date: str):
     """构建并训练LSTM股票预测模型"""
@@ -218,3 +222,9 @@ async def build_model(stock_code: str, start_date: str, end_date: str):
     plt.legend()
     plt.tight_layout()
     plt.savefig(f'../picture/{stock_code}/window_size_performance.png')
+
+
+
+if __name__ == '__main__':
+
+    asyncio.run(build_model(ExponentEnum.CYB.get_code(),None,None))

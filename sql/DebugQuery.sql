@@ -33,3 +33,10 @@ truncate table stock_data;
 delete from stock_data where indicator_id=(select id from indicator where code='000852');
 
 delete from indicator where code='000852';
+
+
+select * from macro_data where indicator_id=(select id from indicator where code='CPI') order by report_date desc;
+
+
+delete from macro_data where indicator_id=(select id from indicator where code='CPI') and report_date = '2025-01-12';
+

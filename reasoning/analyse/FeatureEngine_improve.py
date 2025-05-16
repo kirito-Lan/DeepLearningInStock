@@ -36,9 +36,9 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
     # 获取合并的数据
     merged_data = await get_merged_data(end_date, start_date, stock_code)
     # 2.宏观数据特征
-    macro_feature(merged_data=merged_data, stock_code=stock_code)
+    #macro_feature(merged_data=merged_data, stock_code=stock_code)
     # 股票价格特征
-    #stock_feature(merged_data=merged_data, stock_code=stock_code)
+    stock_feature(merged_data=merged_data, stock_code=stock_code)
     # 季节特征
     seasonal_feature(merged_data=merged_data)
     # 交易量异常值修复
@@ -208,7 +208,7 @@ def stock_feature(merged_data: pd.DataFrame, short_windows: int = 20, long_windo
     merged_data['Daily_PCT_Change'] = merged_data['Close'].pct_change() * 100
 
     # 1. 滚动窗口计算（短期）：计算窗口内的均值、指数加权平均和标准差（波动性）
-    #merged_data['Mean'] = merged_data['Close'].rolling(window=short_windows, min_periods=short_windows).mean()
+    merged_data['Mean'] = merged_data['Close'].rolling(window=short_windows, min_periods=short_windows).mean()
     merged_data['EMA'] = merged_data['Close'].ewm(span=short_windows, adjust=False).mean()
     merged_data['Volatility'] = merged_data['Close'].rolling(window=short_windows, min_periods=short_windows).std()
 
@@ -309,7 +309,7 @@ def cross_feature(merged_data: pd.DataFrame):
 @db_connection
 async def main():
     start,end = format_date(None, None)
-    await feature_engineering(stock_code=ExponentEnum.HS300.get_code(), start_date=start,end_date=end)
+    await feature_engineering(stock_code=ExponentEnum.CYB.get_code(), start_date=start,end_date=end)
 
 
 if __name__ == '__main__':

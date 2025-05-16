@@ -1,4 +1,6 @@
 import asyncio
+
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -21,8 +23,15 @@ async def hot_map(stock_code: str, start_date: str, end_date: str):
     except Exception as e:
         log.info("文件不存在,进行特征工程构造")
         # 构造出来的不存在时间列，已经作为索引了
-        df = await feature_engineering(stock_code, start, end)
+        await feature_engineering(stock_code, start, end)
+        df = pd.read_csv(f'../processed_data/{stock_code}/feature_{stock_code}-{start}-{end}.csv')
+        # 1. 剔除时间列
+        df = df.drop('trade_date', axis=1)
 
+    columns=["Open","High", "Low"]
+    # 删除相关性高的
+    for col in columns:
+        del df[col]
     # 计算斯皮尔曼相关系数矩阵去df的前20列
     spearman_corr = df.iloc[:, :20].corr(method='spearman')
     #spearman_corr = df.corr(method='spearman')
@@ -53,4 +62,4 @@ async def hot_map(stock_code: str, start_date: str, end_date: str):
     plt.show()
 
 if __name__ == '__main__':
-    asyncio.run(hot_map(ExponentEnum.SZI.get_code(), None, None))
+    asyncio.run(hot_map(ExponentEnum.HS300.get_code(), None, None))
