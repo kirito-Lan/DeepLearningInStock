@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MacroData from '@/views/macro/MacroData.vue'
 import StockDataVue from '../views/stock/StockData.vue'
+import EDAVue from '@/views/EDA/eda.vue'
 import TheWelcome from '@/components/TheWelcome.vue'
 
 const router = createRouter({
@@ -17,9 +18,14 @@ const router = createRouter({
       component: StockDataVue,
     },
     {
+      path: '/eda',
+      name: 'eda',
+      component: EDAVue,
+    },
+    {
       path: '/predict',
       name: 'predict',
-      component: TheWelcome
+      component: TheWelcome,
     },
   ],
 })

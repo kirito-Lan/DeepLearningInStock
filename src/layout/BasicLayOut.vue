@@ -10,7 +10,7 @@
       </a-layout-content>
 
       <a-layout-footer class="footer">
-        <a href="https://www.baidu.com" target="_blank"> Stock Reasoning @Kirito </a>
+        <a href="https://data.stats.gov.cn/index.htm" target="_blank"> Stock Reasoning @Kirito </a>
       </a-layout-footer>
     </a-layout>
   </div>

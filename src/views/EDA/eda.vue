@@ -1,0 +1,781 @@
+<template>
+  <div class="eda-container">
+    <a-spin
+      :spinning="loading || descLoading || statsLoading || anomalyLoading || scatterLoading"
+      tip="数据加载中..."
+    >
+      <div class="card-container">
+        <a-card :bordered="false" class="selection-card">
+          <a-row :gutter="24">
+            <a-col :span="10">
+              <a-form-item label="股票选择" class="mb-0">
+                <a-select
+                  v-model:value="selectedStock"
+                  :options="stockOptions"
+                  placeholder="请选择股票"
+                  show-search
+                  :filter-option="filterOption"
+                  style="width: 100%"
+                  @change="handleStockChange"
+                  :default-value="stockOptions.length > 0 ? stockOptions[0].value : ''"
+                >
+                  <template #suffixIcon>
+                    <stock-outlined />
+                  </template>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="时间范围" class="mb-0">
+                <a-range-picker
+                  v-model:value="dateRange"
+                  format="YYYY-MM-DD"
+                  :placeholder="['开始日期', '结束日期']"
+                  style="width: 100%"
+                  @change="handleDateChange"
+                  :default-value="[dayjs().subtract(10, 'year'), dayjs()]"
+                />
+              </a-form-item>
+            </a-col>
+            <a-col :span="2">
+              <a-button type="primary" :loading="loading" @click="fetchData">
+                <template #icon><search-outlined /></template>
+                查询
+              </a-button>
+            </a-col>
+          </a-row>
+        </a-card>
+        <!-- 默认显示的面板 -->
+        <a-collapse :default-active-key="['2', '3']">
+          <a-collapse-panel key="1" header="数据描述">
+            <a-card :bordered="false" class="data-description-card" :loading="descLoading">
+              <template #extra>
+                <a-tooltip title="数据集包含多种金融指标，本表显示每个指标的基本解释">
+                  <info-circle-outlined style="color: #1890ff" />
+                </a-tooltip>
+              </template>
+              <a-table
+                :columns="columns"
+                :data-source="dataDescription"
+                :pagination="false"
+                size="middle"
+                :scroll="{ y: 400 }"
+                :row-key="(record) => record.key"
+              >
+                <template #bodyCell="{ column, text }">
+                  <template v-if="column.dataIndex === 'indicatorIcon'">
+                    <component :is="getIconByKey(text)" style="font-size: 18px" />
+                  </template>
+                </template>
+              </a-table>
+            </a-card>
+          </a-collapse-panel>
+          <!-- 股票的统计性描述 -->
+          <a-collapse-panel key="2" header="股票的统计性描述">
+            <a-card :bordered="false" class="statistics-card" :loading="statsLoading">
+              <a-table
+                :columns="statsColumns"
+                :data-source="stockStatistics"
+                :pagination="false"
+                size="middle"
+                :scroll="{ y: 400 }"
+                :row-key="(record) => record.key"
+              >
+                <template #bodyCell="{ column, text }">
+                  <template v-if="column.dataIndex === 'value'">
+                    {{ text }}
+                  </template>
+                </template>
+              </a-table>
+            </a-card>
+          </a-collapse-panel>
+
+          <a-collapse-panel key="3" header="交易量异常值检测">
+            <a-card :bordered="false" class="anomaly-section-inner-card" :loading="anomalyLoading">
+              <v-chart :option="anomalyChartOption" autoresize class="chart-container" />
+            </a-card>
+          </a-collapse-panel>
+        </a-collapse>
+
+        <!-- 散点图面板 -->
+        <a-card
+          title="宏观经济指标与股价散点图分析"
+          :bordered="false"
+          class="scatter-plot-card"
+          :loading="scatterLoading"
+        >
+          <a-row :gutter="16">
+            <a-col :span="8">
+              <v-chart :option="cpiScatterOption" autoresize class="scatter-chart-item" />
+            </a-col>
+            <a-col :span="8">
+              <v-chart :option="ppiScatterOption" autoresize class="scatter-chart-item" />
+            </a-col>
+            <a-col :span="8">
+              <v-chart :option="pmiScatterOption" autoresize class="scatter-chart-item" />
+            </a-col>
+          </a-row>
+        </a-card>
+
+        <a-empty
+          v-if="
+            !loading &&
+            !descLoading &&
+            !statsLoading &&
+            !anomalyLoading &&
+            !scatterLoading &&
+            dataDescription.length === 0 &&
+            stockStatistics.length === 0 &&
+            (!anomalyChartOption.series ||
+              !(anomalyChartOption.series as any)[0] ||
+              !(anomalyChartOption.series as any)[0].data ||
+              (anomalyChartOption.series as any)[0].data.length === 0) &&
+            (!cpiScatterOption.series ||
+              !(cpiScatterOption.series as any)[0] ||
+              !(cpiScatterOption.series as any)[0].data ||
+              (cpiScatterOption.series as any)[0].data.length === 0)
+          "
+          description="暂无数据，请选择股票和时间范围进行查询"
+        />
+      </div>
+    </a-spin>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { message } from 'ant-design-vue'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart, ScatterChart, BarChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TooltipComponent,
+  TitleComponent,
+  LegendComponent,
+  MarkPointComponent,
+  DataZoomComponent,
+  VisualMapComponent,
+} from 'echarts/components'
+import VChart from 'vue-echarts'
+import type { EChartsOption, SeriesOption } from 'echarts'
+
+// Ant Design Icons
+import {
+  StockOutlined,
+  SearchOutlined,
+  InfoCircleOutlined,
+  LineChartOutlined as IconLineChartOutlined,
+  AreaChartOutlined,
+  BarChartOutlined as IconBarChartOutlined,
+  PieChartOutlined,
+  FundOutlined,
+  DotChartOutlined,
+  FieldTimeOutlined,
+} from '@ant-design/icons-vue'
+
+// API Functions
+import {
+  descriptDataSetPredictDescriptionGet,
+  stockAnalysisPredictStockAnalysisPost,
+  anomalyDetectionPredictAnomalyDetectionPost,
+  scatterPlotPredictScatterPlotPost,
+} from '@/api/predict' // Assuming this path is correct for the project
+import { getStockListStockGetStockListGet } from '@/api/stock'
+
+use([
+  CanvasRenderer,
+  LineChart,
+  ScatterChart,
+  BarChart,
+  TitleComponent,
+  LegendComponent,
+  GridComponent,
+  VisualMapComponent,
+  TooltipComponent,
+  MarkPointComponent,
+  DataZoomComponent,
+])
+
+// 组件名称定义
+defineOptions({
+  name: 'StockEDAView',
+})
+
+// 定义类型
+interface StockOption {
+  value: string
+  label: string
+}
+
+interface DataDescriptionItem {
+  key: string
+  indicatorName: string
+  indicatorNameCn: string
+  indicatorDescription: string
+  indicatorIcon: string
+}
+
+interface StatisticsRow {
+  key: string
+  name: string
+  sample_num?: number | string
+  min_value?: number | string
+  max_value?: number | string
+  avg?: number | string
+  std?: number | string
+  var?: number | string
+  bias?: number | string
+  sharp?: number | string
+}
+
+interface AnomalyData {
+  volume: number
+  trade_date: string
+  Volume_outlier: boolean
+}
+
+interface AnomalySeriesDataPoint {
+  value: number
+  trade_date: string
+  isOutlier: boolean
+}
+
+interface ScatterPoint {
+  CPI: number
+  PPI: number
+  PMI: number
+  Close: number
+}
+
+// 数据 Refs
+const loading = ref(false)
+const descLoading = ref(false)
+const statsLoading = ref(false)
+const anomalyLoading = ref(false)
+const scatterLoading = ref(false)
+
+const selectedStock = ref<string>('')
+const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(10, 'year'), dayjs()])
+const stockOptions = ref<StockOption[]>([])
+const stockStatistics = ref<StatisticsRow[]>([])
+const dataDescription = ref<DataDescriptionItem[]>([])
+
+const columns = [
+  { title: '', dataIndex: 'indicatorIcon', key: 'indicatorIcon', width: 80 },
+  { title: '指标名称', dataIndex: 'indicatorNameCn', key: 'indicatorNameCn', width: 120 },
+  { title: '英文名称', dataIndex: 'indicatorName', key: 'indicatorName', width: 120 },
+  { title: '指标描述', dataIndex: 'indicatorDescription', key: 'indicatorDescription' },
+]
+
+const statsColumns = [
+  {
+    title: '统计类别',
+    dataIndex: 'name',
+    key: 'name',
+    width: 100,
+    align: 'center',
+    className: 'stats-column',
+  },
+  {
+    title: '样本数',
+    dataIndex: 'sample_num',
+    key: 'sample_num',
+    align: 'center',
+    className: 'stats-column',
+  },
+  {
+    title: '最小值',
+    dataIndex: 'min_value',
+    key: 'min_value',
+    align: 'center',
+    className: 'stats-column',
+  },
+  {
+    title: '最大值',
+    dataIndex: 'max_value',
+    key: 'max_value',
+    align: 'center',
+    className: 'stats-column',
+  },
+  { title: '均值', dataIndex: 'avg', key: 'avg', align: 'center', className: 'stats-column' },
+  { title: '标准差', dataIndex: 'std', key: 'std', align: 'center', className: 'stats-column' },
+  { title: '方差', dataIndex: 'var', key: 'var', align: 'center', className: 'stats-column' },
+  { title: '偏度', dataIndex: 'bias', key: 'bias', align: 'center', className: 'stats-column' },
+  { title: '峰度', dataIndex: 'sharp', key: 'sharp', align: 'center', className: 'stats-column' },
+]
+
+const initialAnomalyChartOption: EChartsOption = {
+  title: { text: '', left: 'center' },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#1890ff',
+    borderWidth: 1,
+    textStyle: { color: '#333', fontSize: 13 },
+    padding: [10, 15],
+    extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);',
+    formatter: (params: any) => {
+      if (!params || params.length === 0) return ''
+      const pointInfo = params[0]
+      const seriesData = pointInfo.data as AnomalySeriesDataPoint
+      const date = seriesData.trade_date
+      const volume = seriesData.value
+      const isOutlier = seriesData.isOutlier
+      let html = `<div style="font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee;">📅 ${date}</div>`
+      html += `<div style="display: flex; align-items: center; margin-bottom: 4px;"><span style="display:inline-block; margin-right:8px; border-radius:50%; width:10px; height:10px; background-color:${pointInfo.color};"></span>交易量：<strong>${volume.toLocaleString()}</strong></div>`
+      if (isOutlier) {
+        html += `<div style="color: #ff4d4f; font-weight: bold; margin-top: 5px;">⚠️ 检测到异常</div>`
+      } else {
+        html += `<div style="color: #52c41a; margin-top: 5px;">✔️ 状态正常</div>`
+      }
+      return html
+    },
+  },
+  legend: { data: ['交易量'], bottom: 10 },
+  grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+  xAxis: {
+    type: 'category',
+    data: [] as string[],
+    name: '交易日期',
+    boundaryGap: false,
+    axisLabel: { rotate: 45, interval: 'auto' as number | 'auto' },
+  },
+  yAxis: { type: 'value', name: '交易量', scale: true },
+  series: [
+    {
+      name: '交易量',
+      type: 'line',
+      data: [] as AnomalySeriesDataPoint[],
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2, color: '#1890ff' },
+      markPoint: {
+        symbol: 'circle',
+        symbolSize: 8,
+        label: { show: false },
+        itemStyle: { color: '#ff4d4f' },
+        data: [] as any[],
+      },
+    } as SeriesOption,
+  ],
+  dataZoom: [
+    { type: 'slider', show: true, xAxisIndex: [0], start: 0, end: 100 },
+    { type: 'inside', xAxisIndex: [0], start: 0, end: 100 },
+  ],
+}
+const anomalyChartOption = ref<EChartsOption>(JSON.parse(JSON.stringify(initialAnomalyChartOption)))
+
+const baseScatterOption = (titleText: string, xAxisName: string): EChartsOption => ({
+  title: { text: titleText, left: 'center', top: 10, textStyle: { fontSize: 16 } },
+  grid: { left: '10%', right: '10%', bottom: '15%', top: '20%', containLabel: false },
+  tooltip: {
+    trigger: 'item',
+    formatter: (params: any) => {
+      if (!params.value || params.value.length < 2) return '数据不完整'
+      return `${xAxisName}: ${params.value[0].toFixed(2)}<br/>收盘价: ${params.value[1].toFixed(2)}`
+    },
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#1890ff',
+    borderWidth: 1,
+    textStyle: { color: '#333', fontSize: 13 },
+    padding: [10, 15],
+  },
+  xAxis: {
+    type: 'value',
+    name: xAxisName,
+    nameLocation: 'middle',
+    nameGap: 25,
+    scale: true,
+    splitLine: { show: false },
+    axisLabel: { formatter: (v: number) => v.toFixed(2) },
+  },
+  yAxis: {
+    type: 'value',
+    name: '收盘价',
+    scale: true,
+    splitLine: { show: true, lineStyle: { type: 'dashed' } },
+    axisLabel: { formatter: (v: number) => v.toFixed(2) },
+  },
+  series: [
+    {
+      name: `${titleText}`,
+      type: 'scatter',
+      symbolSize: 8,
+      data: [] as [number, number][],
+      itemStyle: { color: '#1890ff' },
+    } as SeriesOption,
+  ],
+  dataZoom: [
+    { type: 'slider', show: true, xAxisIndex: 0, yAxisIndex: 0, bottom: 10, height: 20 },
+    { type: 'inside', xAxisIndex: 0, yAxisIndex: 0 },
+  ],
+})
+
+const cpiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs CPI', 'CPI 值'))
+const ppiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs PPI', 'PPI 值'))
+const pmiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs PMI', 'PMI 值'))
+
+// 工具函数
+const getIconByKey = (key: string) => {
+  const iconMap: Record<string, any> = {
+    Close: IconLineChartOutlined,
+    Volume: IconBarChartOutlined,
+    Open: FundOutlined,
+    High: AreaChartOutlined,
+    Low: DotChartOutlined,
+    CPI: PieChartOutlined,
+    PPI: PieChartOutlined,
+    PMI: FieldTimeOutlined,
+    default: IconLineChartOutlined,
+  }
+  return iconMap[key] || iconMap.default
+}
+
+const filterOption = (input: string, option: unknown) => {
+  const opt = option as { label: string }
+  return (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
+}
+
+// 数据获取与更新函数
+const fetchStockList = async () => {
+  try {
+    const response = await getStockListStockGetStockListGet()
+    const result = (response.data as any)?.data
+    if (result && Array.isArray(result)) {
+      stockOptions.value = result.map((stock: { name: string; code: string }) => ({
+        value: stock.code,
+        label: stock.name,
+      }))
+    } else {
+      message.error('获取股票列表失败或数据格式不正确')
+    }
+  } catch (error) {
+    console.error('获取股票列表错误:', error)
+    message.error('获取股票列表错误')
+  }
+}
+
+const fetchDataDescription = async () => {
+  descLoading.value = true
+  try {
+    const response = await descriptDataSetPredictDescriptionGet()
+    const result = (response.data as any)?.data
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      const formattedData: DataDescriptionItem[] = []
+      Object.entries(result).forEach(([key, valueObj]) => {
+        const typedValue = valueObj as { 中文名称: string; 指数解释: string }
+        formattedData.push({
+          key,
+          indicatorName: key,
+          indicatorNameCn: typedValue['中文名称'] || '-',
+          indicatorDescription: typedValue['指数解释'] || '-',
+          indicatorIcon: key,
+        })
+      })
+      dataDescription.value = formattedData
+    } else {
+      message.error('获取数据描述失败或数据格式不正确')
+      dataDescription.value = []
+    }
+  } catch (error) {
+    console.error('获取数据描述错误:', error)
+    message.error('获取数据描述错误')
+    dataDescription.value = []
+  } finally {
+    descLoading.value = false
+  }
+}
+
+const fetchStockStatistics = async () => {
+  if (!selectedStock.value) return
+  statsLoading.value = true
+  try {
+    const response = await stockAnalysisPredictStockAnalysisPost({
+      stock_code: selectedStock.value,
+      start_date: dateRange.value[0].format('YYYY-MM-DD'),
+      end_date: dateRange.value[1].format('YYYY-MM-DD'),
+    })
+    const result = (response.data as any)?.data
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      stockStatistics.value = [
+        {
+          key: 'row1',
+          name: '基本统计',
+          sample_num: result.sample_num,
+          min_value: result.min_value,
+          max_value: result.max_value,
+          avg: result.avg,
+        },
+        {
+          key: 'row2',
+          name: '高阶统计',
+          std: result.std,
+          var: result.var,
+          bias: result.bias,
+          sharp: result.sharp,
+        },
+      ]
+    } else {
+      message.error('获取股票统计数据失败或格式不正确')
+      stockStatistics.value = []
+    }
+  } catch (error) {
+    console.error('获取股票统计数据错误:', error)
+    message.error('获取股票统计数据错误')
+    stockStatistics.value = []
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+const updateAnomalyChart = (data: AnomalyData[]) => {
+  const newOption = JSON.parse(JSON.stringify(anomalyChartOption.value)) as EChartsOption
+  if (!data || data.length === 0) {
+    if (newOption.xAxis) (newOption.xAxis as any).data = []
+    if (newOption.series && (newOption.series as any)[0]) {
+      ;(newOption.series as any)[0].data = []
+      if ((newOption.series as any)[0].markPoint) {
+        ;(newOption.series as any)[0].markPoint.data = []
+      }
+    }
+    anomalyChartOption.value = newOption
+    return
+  }
+
+  const dates = data.map((item) => item.trade_date)
+  let intervalSetting: number | 'auto' = 'auto'
+  if (dates.length > 60) intervalSetting = Math.floor(dates.length / 20)
+  else if (dates.length > 30) intervalSetting = Math.floor(dates.length / 10)
+  else if (dates.length > 15) intervalSetting = Math.floor(dates.length / 5)
+  else if (dates.length > 0) intervalSetting = 0
+
+  const seriesData: AnomalySeriesDataPoint[] = data.map((item) => ({
+    value: item.volume,
+    trade_date: item.trade_date,
+    isOutlier: item.Volume_outlier,
+  }))
+
+  const markPointsData = data
+    .filter((item) => item.Volume_outlier)
+    .map((item) => ({
+      name: '异常点',
+      xAxis: item.trade_date,
+      yAxis: item.volume,
+    }))
+
+  if (newOption.xAxis) {
+    ;(newOption.xAxis as any).data = dates
+    if ((newOption.xAxis as any).axisLabel)
+      (newOption.xAxis as any).axisLabel.interval = intervalSetting
+  }
+  if (newOption.series && (newOption.series as any)[0]) {
+    ;(newOption.series as any)[0].data = seriesData
+    if ((newOption.series as any)[0].markPoint) {
+      ;(newOption.series as any)[0].markPoint.data = markPointsData
+    }
+  }
+  anomalyChartOption.value = newOption
+}
+
+const fetchAnomalyData = async () => {
+  if (!selectedStock.value) {
+    updateAnomalyChart([])
+    return
+  }
+  anomalyLoading.value = true
+  try {
+    const response = await anomalyDetectionPredictAnomalyDetectionPost({
+      stock_code: selectedStock.value,
+      start_date: dateRange.value[0].format('YYYY-MM-DD'),
+      end_date: dateRange.value[1].format('YYYY-MM-DD'),
+    })
+    const chartDataPayload = (response.data as any)?.data as AnomalyData[] | undefined
+    if (chartDataPayload && Array.isArray(chartDataPayload)) {
+      updateAnomalyChart(chartDataPayload)
+    } else {
+      message.error('获取异常值检测数据失败或无数据')
+      updateAnomalyChart([])
+    }
+  } catch (error) {
+    console.error('获取异常值检测数据错误:', error)
+    message.error('获取异常值检测数据错误')
+    updateAnomalyChart([])
+  } finally {
+    anomalyLoading.value = false
+  }
+}
+
+const updateScatterCharts = (data: ScatterPoint[] | null) => {
+  const updateSingleScatter = (
+    optionRef: import('vue').Ref<EChartsOption>,
+    key: keyof ScatterPoint,
+  ) => {
+    if (optionRef.value.series && (optionRef.value.series as any)[0]) {
+      ;(optionRef.value.series as any)[0].data = data ? data.map((p) => [p[key], p.Close]) : []
+    } else {
+      optionRef.value.series = [
+        { data: data ? data.map((p) => [p[key], p.Close]) : [] } as SeriesOption,
+      ]
+    }
+  }
+  if (!data || data.length === 0) {
+    if (cpiScatterOption.value.series && (cpiScatterOption.value.series as any)[0])
+      (cpiScatterOption.value.series as any)[0].data = []
+    if (ppiScatterOption.value.series && (ppiScatterOption.value.series as any)[0])
+      (ppiScatterOption.value.series as any)[0].data = []
+    if (pmiScatterOption.value.series && (pmiScatterOption.value.series as any)[0])
+      (pmiScatterOption.value.series as any)[0].data = []
+    return
+  }
+  updateSingleScatter(cpiScatterOption, 'CPI')
+  updateSingleScatter(ppiScatterOption, 'PPI')
+  updateSingleScatter(pmiScatterOption, 'PMI')
+}
+
+const fetchScatterData = async () => {
+  if (!selectedStock.value) {
+    updateScatterCharts(null)
+    return
+  }
+  scatterLoading.value = true
+  try {
+    const response = await scatterPlotPredictScatterPlotPost({
+      stock_code: selectedStock.value,
+      start_date: dateRange.value[0].format('YYYY-MM-DD'),
+      end_date: dateRange.value[1].format('YYYY-MM-DD'),
+    })
+    const scatterDataPayload = (response.data as any)?.data as ScatterPoint[] | undefined
+    if (scatterDataPayload && Array.isArray(scatterDataPayload)) {
+      updateScatterCharts(scatterDataPayload)
+    } else {
+      message.error('获取散点图数据失败或无数据')
+      updateScatterCharts(null)
+    }
+  } catch (error) {
+    console.error('获取散点图数据错误:', error)
+    message.error('获取散点图数据错误')
+    updateScatterCharts(null)
+  } finally {
+    scatterLoading.value = false
+  }
+}
+
+const fetchData = async () => {
+  if (!selectedStock.value) {
+    message.warning('请选择股票')
+    return
+  }
+  if (!dateRange.value || dateRange.value.length < 2) {
+    message.warning('请选择完整的时间范围')
+    return
+  }
+  loading.value = true
+  dataDescription.value = []
+  stockStatistics.value = []
+  updateAnomalyChart([])
+  updateScatterCharts(null)
+  await Promise.allSettled([
+    fetchDataDescription(),
+    fetchStockStatistics(),
+    fetchAnomalyData(),
+    fetchScatterData(),
+  ])
+  loading.value = false
+}
+
+const handleStockChange = (value: string) => {
+  selectedStock.value = value
+  if (value) {
+    fetchData()
+  } else {
+    dataDescription.value = []
+    stockStatistics.value = []
+    updateAnomalyChart([])
+    updateScatterCharts(null)
+  }
+}
+
+const handleDateChange = () => {
+  if (selectedStock.value && dateRange.value && dateRange.value.length === 2) {
+    fetchData()
+  }
+}
+
+onMounted(async () => {
+  await fetchStockList()
+  if (selectedStock.value && dateRange.value && dateRange.value.length === 2) {
+    fetchData()
+  } else {
+    updateAnomalyChart([])
+    updateScatterCharts(null)
+  }
+})
+
+onUnmounted(() => {
+  /* Cleanup if necessary */
+})
+</script>
+
+<style scoped>
+.eda-container {
+  padding: 24px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+.card-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.selection-card,
+.data-description-card,
+.statistics-card,
+.anomaly-section-inner-card,
+.scatter-plot-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+.mb-0 {
+  margin-bottom: 0;
+}
+:deep(.stats-column) {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+:deep(.ant-table-thead > tr > th) {
+  background-color: #fafafa;
+  font-weight: 600;
+  color: #333;
+}
+:deep(.ant-table-tbody > tr > td) {
+  padding: 12px 8px;
+}
+:deep(.ant-table-tbody > tr:hover > td) {
+  background-color: #e6f7ff;
+}
+.chart-container,
+.scatter-chart-item {
+  width: 100%;
+  height: 400px;
+  min-height: 400px;
+}
+:deep(.ant-collapse-content-box) {
+  padding: 0 !important;
+}
+:deep(.ant-card-body) {
+  padding: 20px !important;
+  overflow: visible !important;
+}
+.anomaly-section-inner-card .ant-card-body {
+  padding-top: 12px !important;
+}
+.scatter-chart-item {
+  height: 350px;
+  min-height: 350px;
+}
+</style>

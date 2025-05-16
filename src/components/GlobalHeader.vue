@@ -27,6 +27,7 @@ import {
   StockOutlined,
   BgColorsOutlined,
   GithubOutlined,
+  PieChartFilled,
 } from '@ant-design/icons-vue'
 import { MenuProps } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
@@ -59,19 +60,21 @@ const items = ref<MenuProps['items']>([
     title: '指标数据看板',
   },
   {
+    key: '/eda',
+    icon: () => h(PieChartFilled),
+    label: '数据分析',
+    title: '数据分析看板',
+  },
+  {
     key: '/predict',
     icon: () => h(BgColorsOutlined),
-    label: '数据预测',
-    title: '数据预测看板',
+    label: '建模分析',
+    title: '建模分析看板',
   },
   {
     key: '/about',
     icon: () => h(GithubOutlined),
-    label: h(
-      'a',
-      { href: 'https://github.com/kirito-Lan/DeepLearningInStock/tree/front-end' },
-      '关于',
-    ),
+    label: h('a', { href: 'https://github.com/kirito-Lan/DeepLearningInStock/tree/main' }, '关于'),
     title: '关于',
   },
 ])
