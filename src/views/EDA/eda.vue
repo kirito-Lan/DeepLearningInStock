@@ -17,7 +17,6 @@
                   :filter-option="filterOption"
                   style="width: 100%"
                   @change="handleStockChange"
-                  :default-value="stockOptions.length > 0 ? stockOptions[0].value : ''"
                 >
                   <template #suffixIcon>
                     <stock-outlined />
@@ -46,7 +45,7 @@
           </a-row>
         </a-card>
         <!-- 默认显示的面板 -->
-        <a-collapse :default-active-key="['2', '3']">
+        <a-collapse :default-active-key="['2', '3', '4']">
           <a-collapse-panel key="1" header="数据描述">
             <a-card :bordered="false" class="data-description-card" :loading="descLoading">
               <template #extra>
@@ -95,27 +94,28 @@
               <v-chart :option="anomalyChartOption" autoresize class="chart-container" />
             </a-card>
           </a-collapse-panel>
-        </a-collapse>
 
-        <!-- 散点图面板 -->
-        <a-card
-          title="宏观经济指标与股价散点图分析"
-          :bordered="false"
-          class="scatter-plot-card"
-          :loading="scatterLoading"
-        >
-          <a-row :gutter="16">
-            <a-col :span="8">
-              <v-chart :option="cpiScatterOption" autoresize class="scatter-chart-item" />
-            </a-col>
-            <a-col :span="8">
-              <v-chart :option="ppiScatterOption" autoresize class="scatter-chart-item" />
-            </a-col>
-            <a-col :span="8">
-              <v-chart :option="pmiScatterOption" autoresize class="scatter-chart-item" />
-            </a-col>
-          </a-row>
-        </a-card>
+          <!-- 散点图面板 -->
+          <a-collapse-panel key="4" header="宏观经济指标与股价散点图分析">
+            <a-card
+              :bordered="false"
+              class="scatter-plot-card"
+              :loading="scatterLoading"
+            >
+              <a-row :gutter="16">
+                <a-col :span="8">
+                  <v-chart :option="cpiScatterOption" autoresize class="scatter-chart-item" />
+                </a-col>
+                <a-col :span="8">
+                  <v-chart :option="ppiScatterOption" autoresize class="scatter-chart-item" />
+                </a-col>
+                <a-col :span="8">
+                  <v-chart :option="pmiScatterOption" autoresize class="scatter-chart-item" />
+                </a-col>
+              </a-row>
+            </a-card>
+          </a-collapse-panel>
+        </a-collapse>
 
         <a-empty
           v-if="
@@ -706,11 +706,27 @@ const handleDateChange = () => {
 
 onMounted(async () => {
   await fetchStockList()
+
+  // 如果股票列表不为空，并且当前没有选中的股票，则自动选择第一个
+  if (stockOptions.value.length > 0 && !selectedStock.value) {
+    selectedStock.value = stockOptions.value[0].value
+  }
+
+  // 如果有选中的股票 (无论是预选的还是刚自动选的) 且日期有效
   if (selectedStock.value && dateRange.value && dateRange.value.length === 2) {
-    fetchData()
+    await fetchData() // fetchData 会处理所有相关的 loading 状态
   } else {
+    // 如果条件不满足（例如股票列表为空或日期范围无效），则清空数据和图表
+    dataDescription.value = []
+    stockStatistics.value = []
     updateAnomalyChart([])
     updateScatterCharts(null)
+    if (stockOptions.value.length === 0) {
+      message.info('股票列表为空，无法自动加载数据。')
+    } else if (!selectedStock.value) {
+      // 此情况理论上不应在 stockOptions.value.length > 0 时发生，作为后备
+      message.warning('未能确定要查询的股票。')
+    }
   }
 })
 
