@@ -216,7 +216,7 @@ async def correlation_analysis(request: GetPredictRequest):
     # 取 CPI_Inflation_Rate PPI_Inflation_Rate PMI close_price、
     merged_data = merged_data[["CPI_Inflation_Rate", "PPI_Inflation_Rate", "PMI", "close_price"]]
     # 转换成字典列表 包含索引
-    merged_data = merged_data.reset_index().rename(columns={'index': 'Date', "CPI_Inflation_Rate": "CPI",
+    merged_data = merged_data.reset_index().rename(columns={'index': 'Date',"trade_date":"Date", "CPI_Inflation_Rate": "CPI",
                                                             "PPI_Inflation_Rate": "PPI", "close_price": "Close"})
     # CPI取一位小数,四舍五入
     merged_data['PMI'] = merged_data['PMI'].apply(lambda x: round(x, 1))
