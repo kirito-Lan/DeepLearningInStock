@@ -28,7 +28,7 @@
                   format="YYYY-MM-DD"
                   :placeholder="['开始日期', '结束日期']"
                   style="width: 100%"
-                  :default-value="[dayjs().subtract(20, 'year'), dayjs()]"
+                  :default-value="[dayjs('2000-01-01'), dayjs()]"
                   @change="handleDateChange"
                 >
                   <template #suffixIcon>
@@ -223,7 +223,7 @@ interface StockOption {
 const loading = ref(false);
 const selectedStock = ref<string | undefined>(undefined);
 const stockOptions = ref<StockOption[]>([]);
-const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(20, 'year'), dayjs()]);
+const dateRange = ref<[Dayjs, Dayjs]>([dayjs('2000-01-01'), dayjs()]);
 const epoches = ref<number>(150);
 const reg = ref<number>(0.001);
 

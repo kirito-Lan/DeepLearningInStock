@@ -32,7 +32,7 @@
                   :placeholder="['开始日期', '结束日期']"
                   style="width: 100%"
                   @change="handleDateChange"
-                  :default-value="[dayjs().subtract(10, 'year'), dayjs()]"
+                  :default-value="[dayjs('2000-01-01'), dayjs()]"
                 />
               </a-form-item>
             </a-col>
@@ -294,7 +294,7 @@ const scatterLoading = ref(false)
 const correlationLoading = ref(false)
 
 const selectedStock = ref<string>('')
-const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(20, 'year'), dayjs()])
+const dateRange = ref<[Dayjs, Dayjs]>([dayjs('2000-01-01'), dayjs()])
 const stockOptions = ref<StockOption[]>([])
 const stockStatistics = ref<StatisticsRow[]>([])
 const dataDescription = ref<DataDescriptionItem[]>([])
