@@ -1,7 +1,7 @@
 <template>
   <div class="eda-container">
     <a-spin
-      :spinning="loading || descLoading || statsLoading || anomalyLoading || scatterLoading"
+      :spinning="loading || descLoading || statsLoading || anomalyLoading || scatterLoading || correlationLoading"
       tip="数据加载中..."
     >
       <div class="card-container">
@@ -45,7 +45,7 @@
           </a-row>
         </a-card>
         <!-- 默认显示的面板 -->
-        <a-collapse :default-active-key="['2', '3', '4']">
+        <a-collapse :default-active-key="['2', '3', '4', '5']">
           <a-collapse-panel key="1" header="数据描述">
             <a-card :bordered="false" class="data-description-card" :loading="descLoading">
               <template #extra>
@@ -115,6 +115,27 @@
               </a-row>
             </a-card>
           </a-collapse-panel>
+
+          <!-- 时序图面板 -->
+          <a-collapse-panel key="5" header="宏观经济指标与股价时序图">
+            <a-card
+              :bordered="false"
+              class="correlation-line-chart-card"
+              :loading="correlationLoading"
+            >
+              <a-row :gutter="16">
+                <a-col :span="24">
+                  <v-chart :option="cpiLineChartOption" autoresize class="line-chart-item" />
+                </a-col>
+                <a-col :span="24">
+                  <v-chart :option="ppiLineChartOption" autoresize class="line-chart-item" />
+                </a-col>
+                <a-col :span="24">
+                  <v-chart :option="pmiLineChartOption" autoresize class="line-chart-item" />
+                </a-col>
+              </a-row>
+            </a-card>
+          </a-collapse-panel>
         </a-collapse>
 
         <a-empty
@@ -124,6 +145,7 @@
             !statsLoading &&
             !anomalyLoading &&
             !scatterLoading &&
+            !correlationLoading &&
             dataDescription.length === 0 &&
             stockStatistics.length === 0 &&
             (!anomalyChartOption.series ||
@@ -133,7 +155,11 @@
             (!cpiScatterOption.series ||
               !(cpiScatterOption.series as any)[0] ||
               !(cpiScatterOption.series as any)[0].data ||
-              (cpiScatterOption.series as any)[0].data.length === 0)
+              (cpiScatterOption.series as any)[0].data.length === 0) &&
+            (!cpiLineChartOption.series ||
+              !(cpiLineChartOption.series as any)[0] ||
+              !(cpiLineChartOption.series as any)[0].data ||
+              (cpiLineChartOption.series as any)[0].data.length === 0)
           "
           description="暂无数据，请选择股票和时间范围进行查询"
         />
@@ -182,6 +208,7 @@ import {
   stockAnalysisPredictStockAnalysisPost,
   anomalyDetectionPredictAnomalyDetectionPost,
   scatterPlotPredictScatterPlotPost,
+  correlationAnalysisPredictCorrelationAnalysisPost,
 } from '@/api/predict' // Assuming this path is correct for the project
 import { getStockListStockGetStockListGet } from '@/api/stock'
 
@@ -250,18 +277,28 @@ interface ScatterPoint {
   Close: number
 }
 
+interface CorrelationDataItem {
+  Date: string
+  CPI: number | null
+  PPI: number | null
+  PMI: number | null
+  Close: number | null
+}
+
 // 数据 Refs
 const loading = ref(false)
 const descLoading = ref(false)
 const statsLoading = ref(false)
 const anomalyLoading = ref(false)
 const scatterLoading = ref(false)
+const correlationLoading = ref(false)
 
 const selectedStock = ref<string>('')
 const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(10, 'year'), dayjs()])
 const stockOptions = ref<StockOption[]>([])
 const stockStatistics = ref<StatisticsRow[]>([])
 const dataDescription = ref<DataDescriptionItem[]>([])
+const correlationData = ref<CorrelationDataItem[]>([])
 
 const columns = [
   { title: '', dataIndex: 'indicatorIcon', key: 'indicatorIcon', width: 80 },
@@ -417,6 +454,93 @@ const baseScatterOption = (titleText: string, xAxisName: string): EChartsOption 
 const cpiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs CPI', 'CPI 值'))
 const ppiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs PPI', 'PPI 值'))
 const pmiScatterOption = ref<EChartsOption>(baseScatterOption('收盘价 vs PMI', 'PMI 值'))
+
+// Base option for new line charts
+const baseLineChartOption = (
+  titleText: string,
+  metricKey: 'CPI' | 'PPI' | 'PMI',
+  metricDisplayName: string,
+): EChartsOption => ({
+  title: { text: titleText, left: 'center', top: 10, textStyle: { fontSize: 16, fontWeight: 'normal' } },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: { type: 'cross', crossStyle: { color: '#999' } },
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#1890ff',
+    borderWidth: 1,
+    textStyle: { color: '#333', fontSize: 13 },
+    padding: [10, 15],
+    formatter: (params: any) => {
+      if (!params || params.length === 0) return ''
+      let html = `<div style="font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee;">📅 ${params[0].axisValue}</div>`
+      params.forEach((param: any) => {
+        const value = param.value !== null && param.value !== undefined ? param.value.toFixed(2) : '-'
+        html += `<div style="display: flex; align-items: center; margin-bottom: 4px;"><span style="display:inline-block; margin-right:8px; border-radius:50%; width:10px; height:10px; background-color:${param.color};"></span>${param.seriesName}: <strong>${value}</strong></div>`
+      })
+      return html
+    },
+  },
+  legend: { data: [metricDisplayName, '收盘价'], bottom: 10, textStyle: { fontSize: 12 } },
+  grid: { left: '5%', right: '5%', bottom: '15%', top: '18%', containLabel: true },
+  xAxis: [
+    {
+      type: 'category',
+      data: [],
+      axisPointer: { type: 'shadow' },
+      axisLabel: { rotate: 30, interval: 'auto' as number | 'auto', fontSize: 11 },
+    },
+  ],
+  yAxis: [
+    {
+      type: 'value',
+      name: metricDisplayName,
+      min: (value) => (value.min * 0.95).toFixed(2),
+      max: (value) => (value.max * 1.05).toFixed(2),
+      axisLabel: { formatter: '{value}', fontSize: 11 },
+      nameTextStyle: { fontSize: 12, padding: [0, 0, 0, 30] },
+      splitLine: { lineStyle: { type: 'dashed', color: '#eee'} },
+    },
+    {
+      type: 'value',
+      name: '收盘价',
+      min: (value) => (value.min * 0.9).toFixed(0), // Adjusted for potentially larger scale
+      max: (value) => (value.max * 1.1).toFixed(0), // Adjusted for potentially larger scale
+      axisLabel: { formatter: '{value}', fontSize: 11 },
+      nameTextStyle: { fontSize: 12, padding: [0, 30, 0, 0] },
+      splitLine: { show: false }, // Avoid clutter with the other Y-axis grid
+    },
+  ],
+  series: [
+    {
+      name: metricDisplayName,
+      type: 'line',
+      yAxisIndex: 0,
+      data: [],
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2 },
+      itemStyle: { color: '#5470C6' }
+    },
+    {
+      name: '收盘价',
+      type: 'line',
+      yAxisIndex: 1,
+      data: [],
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2 },
+      itemStyle: { color: '#91CC75'}
+    },
+  ],
+  dataZoom: [
+    { type: 'slider', show: true, xAxisIndex: [0], start: 0, end: 100, bottom: 30, height: 20 },
+    { type: 'inside', xAxisIndex: [0], start: 0, end: 100 },
+  ],
+})
+
+const cpiLineChartOption = ref<EChartsOption>(baseLineChartOption('CPI 与收盘价 时序图', 'CPI', 'CPI'))
+const ppiLineChartOption = ref<EChartsOption>(baseLineChartOption('PPI 与收盘价 时序图', 'PPI', 'PPI'))
+const pmiLineChartOption = ref<EChartsOption>(baseLineChartOption('PMI 与收盘价 时序图', 'PMI', 'PMI'))
 
 // 工具函数
 const getIconByKey = (key: string) => {
@@ -633,6 +757,7 @@ const updateScatterCharts = (data: ScatterPoint[] | null) => {
   updateSingleScatter(cpiScatterOption, 'CPI')
   updateSingleScatter(ppiScatterOption, 'PPI')
   updateSingleScatter(pmiScatterOption, 'PMI')
+  scatterLoading.value = false
 }
 
 const fetchScatterData = async () => {
@@ -663,6 +788,93 @@ const fetchScatterData = async () => {
   }
 }
 
+const updateCorrelationCharts = (data: CorrelationDataItem[] | null) => {
+  const dates = data ? data.map((item) => item.Date) : []
+
+  const updateSingleLineChart = (
+    optionRef: import('vue').Ref<EChartsOption>,
+    metricKey: 'CPI' | 'PPI' | 'PMI',
+  ) => {
+    const metricValues = data ? data.map((item) => item[metricKey]) : []
+    const closeValues = data ? data.map((item) => item.Close) : []
+
+    if (optionRef.value.xAxis && Array.isArray(optionRef.value.xAxis)) {
+      ;(optionRef.value.xAxis[0] as any).data = dates
+      let intervalSetting: number | 'auto' = 'auto';
+      if (dates.length > 120) intervalSetting = Math.floor(dates.length / 15);
+      else if (dates.length > 60) intervalSetting = Math.floor(dates.length / 10);
+      else if (dates.length > 30) intervalSetting = Math.floor(dates.length / 5);
+      else if (dates.length > 0) intervalSetting = 0;
+      (optionRef.value.xAxis[0] as any).axisLabel.interval = intervalSetting;
+
+    }
+    if (optionRef.value.series && Array.isArray(optionRef.value.series)) {
+      ;(optionRef.value.series[0] as any).data = metricValues
+      ;(optionRef.value.series[1] as any).data = closeValues
+    }
+     // Force chart to re-render with new options
+    optionRef.value = { ...optionRef.value };
+  }
+  if (!data || data.length === 0) {
+      const emptyDates: string[] = [];
+      const emptyValues: null[] = [];
+      if (cpiLineChartOption.value.xAxis && Array.isArray(cpiLineChartOption.value.xAxis)) (cpiLineChartOption.value.xAxis[0] as any).data = emptyDates;
+      if (cpiLineChartOption.value.series && Array.isArray(cpiLineChartOption.value.series)) {
+          (cpiLineChartOption.value.series[0] as any).data = emptyValues;
+          (cpiLineChartOption.value.series[1] as any).data = emptyValues;
+      }
+      cpiLineChartOption.value = { ...cpiLineChartOption.value };
+
+      if (ppiLineChartOption.value.xAxis && Array.isArray(ppiLineChartOption.value.xAxis)) (ppiLineChartOption.value.xAxis[0] as any).data = emptyDates;
+      if (ppiLineChartOption.value.series && Array.isArray(ppiLineChartOption.value.series)) {
+          (ppiLineChartOption.value.series[0] as any).data = emptyValues;
+          (ppiLineChartOption.value.series[1] as any).data = emptyValues;
+      }
+       ppiLineChartOption.value = { ...ppiLineChartOption.value };
+
+      if (pmiLineChartOption.value.xAxis && Array.isArray(pmiLineChartOption.value.xAxis)) (pmiLineChartOption.value.xAxis[0] as any).data = emptyDates;
+      if (pmiLineChartOption.value.series && Array.isArray(pmiLineChartOption.value.series)) {
+          (pmiLineChartOption.value.series[0] as any).data = emptyValues;
+          (pmiLineChartOption.value.series[1] as any).data = emptyValues;
+      }
+      pmiLineChartOption.value = { ...pmiLineChartOption.value };
+      return;
+  }
+
+  updateSingleLineChart(cpiLineChartOption, 'CPI')
+  updateSingleLineChart(ppiLineChartOption, 'PPI')
+  updateSingleLineChart(pmiLineChartOption, 'PMI')
+}
+
+const fetchCorrelationData = async () => {
+  if (!selectedStock.value) {
+    updateCorrelationCharts(null)
+    return
+  }
+  correlationLoading.value = true
+  try {
+    const response = await correlationAnalysisPredictCorrelationAnalysisPost({
+      stock_code: selectedStock.value,
+      start_date: dateRange.value[0].format('YYYY-MM-DD'),
+      end_date: dateRange.value[1].format('YYYY-MM-DD'),
+    })
+    const correlationResult = (response.data as any)?.data as CorrelationDataItem[] | undefined
+    if (correlationResult && Array.isArray(correlationResult)) {
+      correlationData.value = correlationResult
+      updateCorrelationCharts(correlationResult)
+    } else {
+      message.error('获取时序图数据失败或无数据')
+      updateCorrelationCharts(null)
+    }
+  } catch (error) {
+    console.error('获取时序图数据错误:', error)
+    message.error('获取时序图数据错误')
+    updateCorrelationCharts(null)
+  } finally {
+    correlationLoading.value = false
+  }
+}
+
 const fetchData = async () => {
   if (!selectedStock.value) {
     message.warning('请选择股票')
@@ -677,11 +889,13 @@ const fetchData = async () => {
   stockStatistics.value = []
   updateAnomalyChart([])
   updateScatterCharts(null)
+  updateCorrelationCharts(null)
   await Promise.allSettled([
     fetchDataDescription(),
     fetchStockStatistics(),
     fetchAnomalyData(),
     fetchScatterData(),
+    fetchCorrelationData(),
   ])
   loading.value = false
 }
@@ -695,6 +909,7 @@ const handleStockChange = (value: string) => {
     stockStatistics.value = []
     updateAnomalyChart([])
     updateScatterCharts(null)
+    updateCorrelationCharts(null)
   }
 }
 
@@ -721,6 +936,7 @@ onMounted(async () => {
     stockStatistics.value = []
     updateAnomalyChart([])
     updateScatterCharts(null)
+    updateCorrelationCharts(null)
     if (stockOptions.value.length === 0) {
       message.info('股票列表为空，无法自动加载数据。')
     } else if (!selectedStock.value) {
@@ -750,7 +966,8 @@ onUnmounted(() => {
 .data-description-card,
 .statistics-card,
 .anomaly-section-inner-card,
-.scatter-plot-card {
+.scatter-plot-card,
+.correlation-line-chart-card {
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
@@ -775,7 +992,8 @@ onUnmounted(() => {
   background-color: #e6f7ff;
 }
 .chart-container,
-.scatter-chart-item {
+.scatter-chart-item,
+.line-chart-item {
   width: 100%;
   height: 400px;
   min-height: 400px;
@@ -793,5 +1011,10 @@ onUnmounted(() => {
 .scatter-chart-item {
   height: 350px;
   min-height: 350px;
+}
+.line-chart-item {
+  width: 100%;
+  height: 380px;
+  min-height: 380px;
 }
 </style>
