@@ -4,7 +4,7 @@
       <div class="card-container">
         <a-card :bordered="false" class="selection-card">
           <a-row :gutter="[16, 16]" >
-            <a-col :xs="24" :sm="12" :md="12" :lg="6">
+            <a-col :xs="24" :sm="12" :md="12" :lg="10">
               <a-form-item label="股票选择" class="mb-0">
                 <a-select
                   v-model:value="selectedStock"
@@ -21,14 +21,14 @@
                 </a-select>
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="12" :md="12" :lg="8">
+            <a-col :xs="24" :sm="12" :md="12" :lg="14">
               <a-form-item label="时间范围" class="mb-0">
                 <a-range-picker
                   v-model:value="dateRange"
                   format="YYYY-MM-DD"
                   :placeholder="['开始日期', '结束日期']"
                   style="width: 100%"
-                  :default-value="[dayjs().subtract(3, 'year'), dayjs()]"
+                  :default-value="[dayjs().subtract(20, 'year'), dayjs()]"
                   @change="handleDateChange"
                 >
                   <template #suffixIcon>
@@ -37,76 +37,37 @@
                 </a-range-picker>
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="12" :md="12" :lg="5">
-              <a-form-item class="mb-0">
-                <template #label>
-                  <dashboard-outlined /> 训练轮次
-                </template>
-                <a-input-number
-                  v-model:value="epoches"
-                  :min="1"
-                  :max="1000"
-                  style="width: 100%"
-                  placeholder="例如: 150"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="12" :lg="5">
-              <a-form-item class="mb-0">
-                <template #label>
-                  <control-outlined /> 正则化
-                </template>
-                <a-input-number
-                  v-model:value="reg"
-                  :min="0.0001"
-                  :max="1.0"
-                  :step="0.0001"
-                  style="width: 100%"
-                  placeholder="例如: 0.001"
-                  :formatter="(value: number | string) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
-                  :parser="(value: string) => parseFloat(value.replace(/\$\s?|(,*)/g, ''))"
-                />
-              </a-form-item>
-            </a-col>
           </a-row>
           <a-divider style="margin-top: 16px; margin-bottom: 16px;" />
-          <a-row :gutter="[8, 8]" justify="start"> 
-            <a-col :xs="12" :sm="8" :md="6" :lg="3">
-              <a-button type="primary" :loading="loading" @click="fetchPredictionData" block>
-                <template #icon><search-outlined /></template>
-                执行预测
+          <a-row :gutter="[8, 8]" justify="start">
+            <a-col :xs="12" :sm="8" :md="6" :lg="4">
+              <a-button type="primary" @click="showTrainModelModal" block :loading="trainingLoading">
+                <template #icon><build-outlined /></template>
+                训练模型
               </a-button>
             </a-col>
-            <a-col :xs="12" :sm="8" :md="6" :lg="3">
-              <a-button :loading="historyLoading || trainingLoading" @click="fetchHistoricalData" block>
+            <a-col :xs="12" :sm="8" :md="6" :lg="4">
+              <a-button @click="fetchHistoricalData" block :loading="historyLoading || trainingLoading">
                 <template #icon><history-outlined /></template>
                 查询历史
               </a-button>
             </a-col>
-            <a-col :xs="12" :sm="8" :md="6" :lg="3">
-              <a-button :loading="exportingModel" @click="handleExportModel" block>
-                <template #icon><file-zip-outlined /></template>
-                导出模型
-              </a-button>
-            </a-col>
-            <a-col :xs="12" :sm="8" :md="6" :lg="3">
-              <a-button :loading="exportingFeatures" @click="handleExportFeatures" block>
+            <a-col :xs="12" :sm="8" :md="6" :lg="4">
+              <a-button @click="handleExportFeatures" block :loading="exportingFeatures">
                 <template #icon><file-text-outlined /></template>
                 导出特征
+              </a-button>
+            </a-col>
+            <a-col :xs="12" :sm="8" :md="6" :lg="4">
+              <a-button @click="handleExportModel" block :loading="exportingModel">
+                <template #icon><file-zip-outlined /></template>
+                导出模型
               </a-button>
             </a-col>
           </a-row>
         </a-card>
 
-        <!-- Prediction results (original placeholder) -->
-        <a-empty v-if="!loading && !predictionResult && !historicalPredictedData && !historicalMetrics" description="暂无数据，请选择参数后点击按钮操作" />
-        <a-card v-if="predictionResult && !historyLoading" class="prediction-result-card">
-           <template #title>
-            <fund-projection-screen-outlined /> 预测结果 (主)
-          </template>
-          <!-- Placeholder for chart or data display -->
-          <p>{{ predictionResult }}</p>
-        </a-card>
+        <a-empty v-if="!historyLoading && !trainingLoading && !historicalPredictedData && !historicalMetrics" description="暂无历史数据，请选择参数后训练模型或查询历史" />
 
         <!-- Historical Data Panels -->
         <a-collapse v-model:activeKey="activeHistoryCollapseKeys" class="history-collapse">
@@ -151,6 +112,43 @@
 
       </div>
     </a-spin>
+
+    <!-- Train Model Modal -->
+    <a-modal
+      v-model:open="isTrainModalVisible"
+      title="配置模型训练参数"
+      :confirm-loading="trainingLoading"
+      centered
+      @ok="handleModalTrainOk"
+      @cancel="isTrainModalVisible = false"
+      ok-text="开始训练"
+      cancel-text="取消"
+    >
+      <a-form layout="vertical" :model="modalTrainFormState" ref="modalTrainFormRef">
+        <a-form-item
+          label="训练轮次 (Epoches)"
+          name="epoches"
+          :rules="[{ required: true, message: '请输入训练轮次' }]"
+        >
+          <a-input-number v-model:value="modalTrainFormState.epoches" :min="1" :max="2000" style="width: 100%" placeholder="例如: 150" />
+        </a-form-item>
+        <a-form-item
+          label="正则化 (Reg)"
+          name="reg"
+          :rules="[{ required: true, message: '请输入正则化参数' }]"
+        >
+          <a-input-number v-model:value="modalTrainFormState.reg" :min="0.00001" :max="1.0" :step="0.0001" style="width: 100%" placeholder="例如: 0.001" />
+        </a-form-item>
+        <a-form-item
+          label="Dropout"
+          name="dropout"
+          :rules="[{ required: true, message: '请输入Dropout率' }]"
+        >
+          <a-input-number v-model:value="modalTrainFormState.dropout" :min="0.0" :max="0.99" :step="0.01" style="width: 100%" placeholder="例如: 0.3" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
   </div>
 </template>
 
@@ -186,6 +184,7 @@ import {
   TableOutlined,
   FileZipOutlined,
   FileTextOutlined,
+  BuildOutlined,
 } from '@ant-design/icons-vue';
 
 // API Functions
@@ -224,7 +223,7 @@ interface StockOption {
 const loading = ref(false);
 const selectedStock = ref<string | undefined>(undefined);
 const stockOptions = ref<StockOption[]>([]);
-const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(3, 'year'), dayjs()]);
+const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(20, 'year'), dayjs()]);
 const epoches = ref<number>(150);
 const reg = ref<number>(0.001);
 
@@ -244,6 +243,20 @@ const historyChartOption = ref<EChartsOption>({});
 const lossChartOption = ref<EChartsOption>({});
 const metricsTableColumns = ref<Array<{ title: string; dataIndex: string; key: string; align?: string }>>([]);
 const metricsTableDataSource = ref<Array<Record<string, number | string>>>([]);
+
+// Modal state and form
+const isTrainModalVisible = ref(false);
+interface ModalTrainFormState {
+  epoches: number;
+  reg: number;
+  dropout: number;
+}
+const modalTrainFormRef = ref(); // For form validation
+const modalTrainFormState = ref<ModalTrainFormState>({ // Reactive state for modal form
+  epoches: 150,
+  reg: 0.001,
+  dropout: 0.3,
+});
 
 // Filter option for select
 const filterOption = (input: string, option: unknown) => {
@@ -372,12 +385,12 @@ const updateMetricsTable = () => {
         key: key,
         align: 'center' as 'center',
       });
-      singleRowData[key] = typeof historicalMetrics.value[key] === 'number' 
-        ? parseFloat((historicalMetrics.value[key] as number).toFixed(4)) 
+      singleRowData[key] = typeof historicalMetrics.value[key] === 'number'
+        ? parseFloat((historicalMetrics.value[key] as number).toFixed(4))
         : historicalMetrics.value[key];
     }
   });
-  
+
   metricsTableColumns.value = newColumns;
   metricsTableDataSource.value = newColumns.length > 0 ? [singleRowData] : [];
 };
@@ -394,8 +407,8 @@ const updateLossChart = () => {
 
   lossChartOption.value = {
     title: { text: '训练/验证损失曲线', left: 'center', textStyle: { fontWeight: 'normal' } },
-    tooltip: { 
-      trigger: 'axis', 
+    tooltip: {
+      trigger: 'axis',
       axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
       formatter: (params: any) => {
         if (!params || params.length === 0 || params[0].axisValue == null) return '';
@@ -409,10 +422,10 @@ const updateLossChart = () => {
     },
     legend: { data: ['训练损失', '验证损失'], bottom: 10 },
     grid: { left: '5%', right: '4%', bottom: '15%', containLabel: true },
-    xAxis: { 
-      type: 'value', 
+    xAxis: {
+      type: 'value',
       name: 'Epochs',
-      boundaryGap: false, 
+      boundaryGap: false,
       min: 1,
       axisLabel: { interval: 'auto' }
     },
@@ -425,7 +438,7 @@ const updateLossChart = () => {
         smooth: true,
         showSymbol: false,
         sampling: 'lttb',
-        itemStyle: { color: '#c23531' }, 
+        itemStyle: { color: '#c23531' },
         zlevel: 1
       },
       {
@@ -555,25 +568,57 @@ const handleExportFeatures = async () => {
   }
 };
 
-// Train Model
-const handleTrainModel = async () => {
-  if (!selectedStock.value || !dateRange.value || dateRange.value.length < 2 || !epoches.value || !reg.value) {
-    message.error('请确保已选择股票、时间范围并已输入训练轮次和正则化参数。');
+// Show Train Model Modal
+const showTrainModelModal = () => {
+  // Reset modal form to defaults each time it's opened for a fresh start
+  modalTrainFormState.value = {
+    epoches: 150,
+    reg: 0.001,
+    dropout: 0.3,
+  };
+  isTrainModalVisible.value = true;
+};
+
+// Handle Modal OK for Training
+const handleModalTrainOk = async () => {
+  if (!selectedStock.value) {
+    message.warning('请先选择股票。');
     return;
   }
+  if (!dateRange.value || dateRange.value.length < 2) {
+    message.warning('请选择完整的时间范围。');
+    return;
+  }
+
+  try {
+    await modalTrainFormRef.value.validate(); // Validate modal form
+  } catch (error) {
+    message.warning('请填写所有必填的训练参数。');
+    return; // Stop if validation fails
+  }
+
   trainingLoading.value = true;
   try {
     const params = {
       stock_code: selectedStock.value,
       start_date: dateRange.value[0].format('YYYY-MM-DD'),
       end_date: dateRange.value[1].format('YYYY-MM-DD'),
-      Epoches: epoches.value,
-      reg: reg.value,
+      Epoches: modalTrainFormState.value.epoches,
+      reg: modalTrainFormState.value.reg,
+      dropout: modalTrainFormState.value.dropout, // Added dropout
     };
-    const response = await trainModelPredictTrainModelPost(params as API.GetPredictRequest);
+    const response = await trainModelPredictTrainModelPost(
+      params as API.GetPredictRequest,
+      { timeout: 1200000 } // 20 minutes in milliseconds
+    );
     if (response.data && (response.data as any).code === 200 && (response.data as any).data === true) {
-      message.success('模型训练成功！正在获取最新的训练历史...');
-      await fetchHistoricalData(); // Automatically fetch history after successful training
+      isTrainModalVisible.value = false; // Close modal on success
+      message.success('模型训练成功！将在3秒后获取最新的训练历史...');
+
+      // Wait for 3 seconds before fetching historical data
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      await fetchHistoricalData(); // Automatically fetch history after successful training and delay
     } else {
       message.error((response.data as any)?.msg || '模型训练失败，请检查参数或稍后再试。');
     }
@@ -583,23 +628,6 @@ const handleTrainModel = async () => {
   } finally {
     trainingLoading.value = false;
   }
-};
-
-// Confirm and Train Model
-const confirmAndTrainModel = () => {
-  Modal.confirm({
-    title: '无历史数据',
-    content: '未找到该股票在指定时间范围内的历史训练数据。是否现在开始训练模型？',
-    okText: '开始训练',
-    cancelText: '取消',
-    centered: true,
-    onOk: async () => {
-      await handleTrainModel();
-    },
-    onCancel: () => {
-      message.info('已取消模型训练。');
-    },
-  });
 };
 
 // Fetch Historical Data
@@ -664,72 +692,21 @@ const fetchHistoricalData = async () => {
   }
 };
 
-// Fetch prediction data (original placeholder function)
-const fetchPredictionData = async () => {
-  if (!selectedStock.value) {
-    message.warning('请选择股票');
-    return;
-  }
-  if (!dateRange.value || dateRange.value.length < 2) {
-    message.warning('请选择完整的时间范围');
-    return;
-  }
-  if (epoches.value === null || epoches.value === undefined || epoches.value <= 0) {
-    message.warning('请输入有效的训练轮次');
-    return;
-  }
-   if (reg.value === null || reg.value === undefined || reg.value <= 0) {
-    message.warning('请输入有效的正则化参数');
-    return;
-  }
-
-  loading.value = true;
-  predictionResult.value = null; // Clear previous results
-
-  console.log('Fetching prediction with params:', {
-    stock_code: selectedStock.value,
-    start_date: dateRange.value[0].format('YYYY-MM-DD'),
-    end_date: dateRange.value[1].format('YYYY-MM-DD'),
-    Epoches: epoches.value,
-    reg: reg.value,
+// Confirm and Train Model (used by fetchHistoricalData if no data)
+const confirmAndTrainModel = () => {
+  Modal.confirm({
+    title: '无历史数据',
+    content: '未找到该股票在指定时间范围内的历史训练数据。是否现在配置参数并开始训练模型？',
+    okText: '配置参数并训练',
+    cancelText: '取消',
+    centered: true,
+    onOk: () => { // Changed from async and direct call
+      showTrainModelModal(); // Open the modal for user to configure and then train
+    },
+    onCancel: () => {
+      message.info('已取消模型训练。');
+    },
   });
-
-  // Simulate API call
-  // Replace with actual API call:
-  // try {
-  //   const params = {
-  //     stock_code: selectedStock.value,
-  //     start_date: dateRange.value[0].format('YYYY-MM-DD'),
-  //     end_date: dateRange.value[1].format('YYYY-MM-DD'),
-  //     Epoches: epoches.value,
-  //     reg: reg.value,
-  //   };
-  //   const response = await yourPredictApiFunction(params);
-  //   predictionResult.value = response.data; // Adjust based on actual response structure
-  //   message.success('预测成功');
-  // } catch (error) {
-  //   console.error('预测请求错误:', error);
-  //   message.error('预测请求失败');
-  //   predictionResult.value = null;
-  // } finally {
-  //   loading.value = false;
-  // }
-
-  // Placeholder for demonstration
-  setTimeout(() => {
-    predictionResult.value = {
-      message: '这是模拟的预测结果',
-      params: {
-        stock_code: selectedStock.value,
-        start_date: dateRange.value[0].format('YYYY-MM-DD'),
-        end_date: dateRange.value[1].format('YYYY-MM-DD'),
-        Epoches: epoches.value,
-        reg: reg.value,
-      }
-    };
-    loading.value = false;
-    message.success('模拟预测完成');
-  }, 1500);
 };
 
 onMounted(async () => {
@@ -769,7 +746,7 @@ onMounted(async () => {
 }
 .history-chart-item {
   width: 100%;
-  height: 400px; 
+  height: 400px;
   min-height: 350px;
 }
 .mb-0 {

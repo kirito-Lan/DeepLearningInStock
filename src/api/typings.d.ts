@@ -39,6 +39,8 @@ declare namespace API {
     Epoches?: number
     /** Reg 正则化 */
     reg?: number
+    /** Dropout dropout */
+    dropout?: number
   }
 
   type GetStockRequest = {

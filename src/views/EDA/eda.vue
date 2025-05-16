@@ -294,7 +294,7 @@ const scatterLoading = ref(false)
 const correlationLoading = ref(false)
 
 const selectedStock = ref<string>('')
-const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(10, 'year'), dayjs()])
+const dateRange = ref<[Dayjs, Dayjs]>([dayjs().subtract(20, 'year'), dayjs()])
 const stockOptions = ref<StockOption[]>([])
 const stockStatistics = ref<StatisticsRow[]>([])
 const dataDescription = ref<DataDescriptionItem[]>([])

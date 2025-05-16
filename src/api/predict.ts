@@ -40,25 +40,6 @@ export async function correlationAnalysisPredictCorrelationAnalysisPost(
   })
 }
 
-/** Decompose Trend 趋势分解
-Args:
-    request: 请求体
-Returns:
-    dict: 返回趋势分解结果 POST /predict/decompose_trend */
-export async function decomposeTrendPredictDecomposeTrendPost(
-  body: API.GetPredictRequest,
-  options?: { [key: string]: any }
-) {
-  return request<API.BaseResponse>('/predict/decompose_trend', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    data: body,
-    ...(options || {}),
-  })
-}
-
 /** Descript Data Set 描述原始数据集中的数据
 Args:
     Close: 收盘价
@@ -107,28 +88,6 @@ export async function getFeaturedFilePredictGetFeaturedFilePost(
   options?: { [key: string]: any }
 ) {
   return request<API.BaseResponse>('/predict/get_featured_file', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    data: body,
-    ...(options || {}),
-  })
-}
-
-/** Get Trained History 获取到最近一次的训练数据内含，预测结果。模型的指标参数。最近一次预测的时间
-Args:
-    request: 请求体
-    evaluation_metrics.png 模型评价指标
-    prediction_result.png 预测结果
-    training_history.png 训练历史
-Returns:
-    dict: 返回最近一次的训练数据 POST /predict/get_trained_history */
-export async function getTrainedHistoryPredictGetTrainedHistoryPost(
-  body: API.GetPredictRequest,
-  options?: { [key: string]: any }
-) {
-  return request<API.BaseResponse>('/predict/get_trained_history', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
