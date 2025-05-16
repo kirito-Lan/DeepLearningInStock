@@ -11,7 +11,7 @@ from fastapi.params import Query
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from starlette.responses import FileResponse
 
-from config.LoguruConfig import project_root
+from config.LoguruConfig import project_root, log
 from constant.BaseResponse import BaseResponse
 from constant.ErrorCode import ErrorCode
 from constant.ExponentEnum import ExponentEnum
@@ -280,6 +280,9 @@ async def get_trained_score(request: GetPredictRequest):
     # 分别获取两个文件的修改日期格式化成%Y-%m-%d。如果修改日期不等于end_date(他是str)也返回煤油文件
     predict_mod_date = datetime.fromtimestamp(predict_file.stat().st_mtime).strftime('%Y-%m-%d')
     loss_mod_date = datetime.fromtimestamp(loss_file.stat().st_mtime).strftime('%Y-%m-%d')
+    log.debug(f"文件predict_mod_date修改日期：【{predict_mod_date}】")
+    log.debug(f"文件loss_mod_date修改日期：【{loss_mod_date}】")
+    log.debug(f"请求中的end_date：【{end_date}】")
     # 如果任一文件的修改日期与请求中的 end_date 不一致，则返回失败响应
     if predict_mod_date != end_date or loss_mod_date != end_date:
         return BaseResponse[str].fail(errcode=ErrorCode.FILE_NOT_FOUND_ERROR,

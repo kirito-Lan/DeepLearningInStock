@@ -32,7 +32,7 @@ file_root= str(project_root/"reasoning/")
 
 async def build_model(stock_code: str, start_date: str, end_date: str, epochs:int,reg:float,dropout:float):
     """构建并训练LSTM股票预测模型"""
-    log.info(f"开始构建模型epochs: 【{epochs} 】reg: 【{reg} 】dropout: 【{dropout}】")
+    log.info(f"开始构建模型epochs: 【{epochs}】reg: 【{reg}】dropout: 【{dropout}】")
     # 获取枚举值
     stock = ExponentEnum.get_enum_by_code(stock_code)
     if stock is None:
