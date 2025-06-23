@@ -289,8 +289,10 @@ async def get_trained_score(request: GetPredictRequest):
                                       msg="文件修改日期与结束日期不匹配，请先重新构建模型")
     # 读取文件使用pandas读取文件
     predict_data = pd.read_csv(predict_file)
+    # 保留4位小数
+    predict_data["Actual"] = predict_data["Actual"].round(decimals=4)
+    predict_data["Predicted"] = predict_data["Predicted"].round(decimals=4)
     # Date,Actual,Predicted 计算指标
-    # 计算指标
     mse = mean_squared_error(predict_data["Actual"], predict_data["Predicted"])
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(predict_data["Actual"], predict_data["Predicted"])

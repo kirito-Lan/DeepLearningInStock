@@ -12,7 +12,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
-from config.LoguruConfig import log
+from config.LoguruConfig import log, project_root
 from constant.ExponentEnum import ExponentEnum
 from constant.MaroDataEnum import MacroDataEnum
 from manager import StockDataManage, MacroDataManage
@@ -20,6 +20,7 @@ from manager.decoration.dbconnect import db_connection
 from model.entity.BaseMeta.BaseMeta import database
 from utils.ReFormatDate import format_date
 
+file_root= str(project_root/"reasoning/")
 
 # 股票数据的特征工程
 async def feature_engineering(stock_code: str, start_date: str, end_date: str):
@@ -51,7 +52,7 @@ async def feature_engineering(stock_code: str, start_date: str, end_date: str):
     # 保存数据
     merged_data.fillna(0, inplace=True)
     merged_data.replace([np.inf, -np.inf], 0, inplace=True)
-    merged_data.to_csv(f"../processed_data/{stock_code}/feature_{stock_code}-{start_date}-{end_date}.csv")
+    merged_data.to_csv(f"{file_root}/processed_data/{stock_code}/feature_{stock_code}-{start_date}-{end_date}.csv")
 
 
 async def get_merged_data(end_date, start_date, stock_code):

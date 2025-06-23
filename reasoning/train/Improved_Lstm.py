@@ -18,6 +18,8 @@ from config.LoguruConfig import log, project_root
 from constant.ExponentEnum import ExponentEnum
 from manager.decoration.dbconnect import db_connection
 import seaborn as sns
+
+from reasoning.analyse import FeatureEngine_improve
 from reasoning.analyse.FeatureEngine import feature_engineering
 from utils.ReFormatDate import format_date
 
@@ -43,12 +45,12 @@ async def build_model(stock_code: str, start_date: str, end_date: str, epochs:in
     log.info(f"开始构建模型，读取股票代码：{stock_code} 数据")
     data = pd.DataFrame()
     try:
-        data = pd.read_csv(f'../processed_data/{stock_code}/feature_{stock.get_code()}-{start_date}-{end_date}.csv')
+        data = pd.read_csv(f'{file_root}/processed_data/{stock_code}/feature_{stock.get_code()}-{start_date}-{end_date}.csv')
     except FileNotFoundError:
         log.info(f"读取数据为空开始特征工程")
-        await feature_engineering(stock_code,start_date,end_date)
+        await FeatureEngine_improve.feature_engineering(stock_code,start_date,end_date)
         #特征工程结束后再次读取
-        data = pd.read_csv(f'../processed_data/{stock_code}/feature_{stock.get_code()}-{start_date}-{end_date}.csv')
+        data = pd.read_csv(f'{file_root}/processed_data/{stock_code}/feature_{stock.get_code()}-{start_date}-{end_date}.csv')
 
     if data is None or data.empty:
         raise Exception("没有找到对应的股票数据")
@@ -152,7 +154,7 @@ async def build_model(stock_code: str, start_date: str, end_date: str, epochs:in
             log.debug(f"已删除临时文件: {file}")
 
     # 最终模型保存
-    final_model_path = f'../model/{stock.get_name()}_model.keras'
+    final_model_path = f'{file_root}/model/{stock.get_name()}_model.keras'
     best_metrics['model'].save(final_model_path)
     log.info(f"模型已保存至: {final_model_path}")
 
